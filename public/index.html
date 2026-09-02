@@ -220,22 +220,6 @@ select.finp{cursor:pointer}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--b2);border-radius:4px}
 
-/* ── LOGIN SCREEN ── */
-#loginScreen{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:var(--bg);transition:opacity .4s}
-#loginScreen.hidden{opacity:0;pointer-events:none}
-.login-box{transition:transform .16s ease;width:360px;padding:48px 40px;background:var(--surf);border:1px solid var(--b2);border-radius:10px;position:relative;overflow:hidden}
-.login-box::before{content:'';position:absolute;top:-60px;right:-60px;width:200px;height:200px;border-radius:50%;background:var(--acc);opacity:.04;pointer-events:none}
-.login-logo{font-family:'Syne',sans-serif;font-weight:700;font-size:28px;color:var(--acc);letter-spacing:.04em;margin-bottom:4px}
-.login-sub{font-size:10px;color:var(--t3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:36px}
-.login-field{display:flex;flex-direction:column;gap:5px;margin-bottom:16px}
-.login-label{font-size:9px;color:var(--t3);letter-spacing:.12em;text-transform:uppercase}
-.login-input{background:var(--surf2);border:1px solid var(--b2);border-radius:4px;color:var(--t1);font-family:'DM Mono',monospace;font-size:13px;padding:10px 12px;outline:none;transition:.15s;width:100%}
-.login-input:focus{border-color:var(--acc)}
-.login-btn{width:100%;padding:11px;background:#2563eb;border:none;border-radius:4px;color:#fff;font-family:'DM Mono',monospace;font-size:13px;font-weight:500;cursor:pointer;margin-top:8px;transition:.15s;letter-spacing:.02em}
-.login-btn:hover{background:#1d4ed8;transform:translateY(-1px)}
-.login-btn:active{transform:translateY(0)}
-.login-err{font-size:10px;color:var(--err);text-align:center;margin-top:10px;height:14px;transition:.15s}
-
 /* ── THEME PANEL ── */
 #themePanel{position:fixed;right:0;top:0;bottom:0;width:300px;background:var(--surf);border-left:1px solid var(--b2);z-index:800;transform:translateX(100%);transition:transform .25s;display:flex;flex-direction:column;overflow:hidden}
 #themePanel.open{transform:translateX(0)}
@@ -406,28 +390,48 @@ select.finp{cursor:pointer}
 /* ── SNAPSHOT ── */
 .snap-info{font-size:10px;color:var(--t3);padding:6px 8px;background:var(--surf2);border-radius:4px;margin-bottom:4px;line-height:1.6}
 .snap-info.has-snap{color:var(--acc2)}
+
+/* ── CINEMATIC UI MOTION ── */
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:3999;opacity:.055;background-image:repeating-linear-gradient(0deg,transparent 0 3px,color-mix(in srgb,var(--t1) 18%,transparent) 4px);mix-blend-mode:overlay}
+#sceneTransition{position:fixed;inset:0;z-index:4200;pointer-events:none;overflow:hidden;visibility:hidden}
+#sceneTransition.play{visibility:visible}
+.st-plane{position:absolute;inset:-25%;background:linear-gradient(118deg,var(--bg) 0 43%,var(--acc) 43.2% 51%,var(--t1) 51.2% 66%,var(--surf) 66.2% 100%);transform:translate3d(-125%,0,0) skewX(-7deg);will-change:transform}
+.st-orb{position:absolute;width:min(42vw,430px);aspect-ratio:1;border-radius:50%;left:50%;top:50%;background:var(--acc);box-shadow:0 0 110px color-mix(in srgb,var(--acc) 46%,transparent);transform:translate3d(-50%,-50%,0) scale(.08);opacity:0;will-change:transform,opacity}
+.st-orb::before,.st-orb::after{content:'';position:absolute;border-radius:50%;inset:-26px;border:2px solid color-mix(in srgb,var(--t1) 65%,transparent)}
+.st-orb::after{inset:-58px;border-color:color-mix(in srgb,var(--acc) 45%,transparent)}
+.st-label{position:absolute;left:50%;top:50%;transform:translate3d(-50%,-50%,0);font-family:'Syne',sans-serif;font-size:clamp(30px,7vw,92px);font-weight:700;letter-spacing:.12em;color:var(--t1);text-shadow:8px 8px 0 var(--bg);white-space:nowrap;opacity:0;will-change:transform,opacity}
+#sceneTransition::before{content:'';position:absolute;inset:-40%;background:linear-gradient(105deg,transparent 43%,color-mix(in srgb,var(--acc) 78%,var(--t1)) 43.2% 45%,transparent 45.2%);transform:translate3d(-115%,0,0);will-change:transform}
+#sceneTransition::after{content:'';position:absolute;inset:0;opacity:0;background-image:linear-gradient(color-mix(in srgb,var(--acc) 16%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--acc) 16%,transparent) 1px,transparent 1px);background-size:34px 34px;will-change:opacity,transform}
+#sceneTransition.play .st-plane{animation:posterWipe 2.15s cubic-bezier(.76,0,.24,1) both}
+#sceneTransition.play .st-orb{animation:posterOrb 2.15s cubic-bezier(.16,1,.3,1) both}
+#sceneTransition.play .st-label{animation:posterType 2.15s cubic-bezier(.16,1,.3,1) both}
+#sceneTransition.play::before{animation:accentSlash 2.15s cubic-bezier(.76,0,.24,1) both}
+#sceneTransition.play::after{animation:gridPulse 2.15s ease both}
+@keyframes posterWipe{0%{transform:translate3d(-125%,0,0) skewX(-7deg)}28%{transform:translate3d(-12%,0,0) skewX(-7deg)}44%,63%{transform:translate3d(0,0,0) skewX(-7deg)}78%{transform:translate3d(18%,0,0) skewX(-7deg)}100%{transform:translate3d(125%,0,0) skewX(-7deg)}}
+@keyframes posterOrb{0%,18%{opacity:0;transform:translate3d(-50%,-50%,0) scale(.08) rotate(-28deg)}38%{opacity:1;transform:translate3d(-50%,-50%,0) scale(.82) rotate(0)}55%,68%{opacity:1;transform:translate3d(-50%,-50%,0) scale(1) rotate(18deg)}100%{opacity:0;transform:translate3d(-50%,-50%,0) scale(1.48) rotate(46deg)}}
+@keyframes posterType{0%,28%{opacity:0;letter-spacing:.32em;transform:translate3d(-42%,-50%,0)}43%,68%{opacity:1;letter-spacing:.12em;transform:translate3d(-50%,-50%,0)}84%,100%{opacity:0;letter-spacing:.04em;transform:translate3d(-58%,-50%,0)}}
+@keyframes accentSlash{0%,12%{transform:translate3d(-115%,0,0)}48%,62%{transform:translate3d(0,0,0)}100%{transform:translate3d(115%,0,0)}}
+@keyframes gridPulse{0%,24%,100%{opacity:0;transform:scale(1.08)}44%,68%{opacity:.8;transform:scale(1)}}
+.ui-ready .topbar{animation:uiDrop .5s cubic-bezier(.22,1,.36,1) both}
+.ui-ready .sidebar-wrap,.ui-ready .sidebar{animation:uiSlide .55s .06s cubic-bezier(.22,1,.36,1) both}
+.ui-ready .canvas-wrap{animation:uiRise .6s .1s cubic-bezier(.22,1,.36,1) both}
+.scene-refresh .canvas-wrap{animation:canvasCut .38s cubic-bezier(.22,1,.36,1)}
+@keyframes uiDrop{from{opacity:0;transform:translateY(-18px)}to{opacity:1;transform:none}}
+@keyframes uiSlide{from{opacity:0;transform:translateX(-22px)}to{opacity:1;transform:none}}
+@keyframes uiRise{from{opacity:0;transform:translateY(20px);filter:blur(5px)}to{opacity:1;transform:none;filter:none}}
+@keyframes canvasCut{0%{opacity:.2;transform:translateX(14px);filter:contrast(1.5)}100%{opacity:1;transform:none;filter:none}}
+.hbtn,.rtab,.btab,.btab-menu,.cp-btn{position:relative;overflow:hidden;isolation:isolate}
+.hbtn::after,.rtab::after,.btab::after,.btab-menu::after,.cp-btn::after{content:'';position:absolute;inset:-2px;background:linear-gradient(110deg,transparent 25%,color-mix(in srgb,var(--acc) 32%,transparent) 48%,transparent 70%);transform:translateX(-130%);transition:transform .48s;z-index:-1}
+.hbtn:hover::after,.rtab:hover::after,.btab:hover::after,.btab-menu:hover::after,.cp-btn:hover::after{transform:translateX(130%)}
+.dev{animation:deviceIn .28s cubic-bezier(.22,1,.36,1) both}
+@keyframes deviceIn{from{opacity:0;transform:translateY(5px) scale(.97)}to{opacity:1;transform:none}}
+.modal,.check-popup,.rdrawer,#themePanel{backdrop-filter:blur(16px);box-shadow:0 22px 70px rgba(0,0,0,.55),0 0 0 1px color-mix(in srgb,var(--acc) 12%,transparent)}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}#sceneTransition{display:none!important}}
 </style>
+<link rel="stylesheet" href="/ux-polish.css">
 </head>
 <body>
-
-<!-- ── LOGIN SCREEN ── -->
-<div id="loginScreen">
-  <div class="login-box">
-    <div class="login-logo"><span style="color:#4a9eff;font-weight:700">FIT</span><span style="color:#ffffff;font-weight:400">.</span><span style="color:#a0c8ff;font-weight:600">ITC</span><span style="color:#ffffff;font-weight:400">.</span><span style="color:#e0eeff;font-weight:700">PC</span></div>
-    <div class="login-sub">教室設備管理システム</div>
-    <div class="login-field">
-      <div class="login-label">ユーザー名</div>
-      <input class="login-input" id="loginUser" type="text" placeholder="FIT.ITC.PC" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
-    </div>
-    <div class="login-field">
-      <div class="login-label">パスワード</div>
-      <input class="login-input" id="loginPass" type="password" placeholder="1" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-    </div>
-    <button class="login-btn" onclick="doLogin()">ログイン</button>
-    <div class="login-err" id="loginErr"></div>
-  </div>
-</div>
-
+<div id="sceneTransition" aria-hidden="true"><div class="st-plane"></div><div class="st-orb"></div><div class="st-label" id="sceneLabel"></div></div>
 
 <div class="topbar">
   <div class="logo"><span style="color:#4a9eff">FIT</span><span style="color:var(--t3)">.</span><span style="color:#a0c8ff">ITC</span><span style="color:var(--t3)">.</span><span style="color:#e0f0ff">PC</span></div>
@@ -580,6 +584,9 @@ select.finp{cursor:pointer}
     <button class="rdrawer-btn" onclick="openAnomalyModal();closeRightDrawer()">
       <span class="rdrawer-btn-icon">⚠️</span>未解決の異常
     </button>
+    <button class="rdrawer-btn" onclick="exportAnomalyHistory();closeRightDrawer()">
+      <span class="rdrawer-btn-icon">📄</span>異常履歴を出力
+    </button>
     <div class="rdrawer-sep"></div>
     <div class="snap-info" id="snapInfo">復元ポイント: 未保存</div>
     <button class="rdrawer-btn" onclick="saveSnapshot()">
@@ -613,6 +620,7 @@ select.finp{cursor:pointer}
     </div>
     <div class="anomaly-body" id="anomalyBody"></div>
     <div class="anomaly-footer">
+      <button class="hbtn hbtn-a" onclick="exportAnomalyHistory()">異常履歴CSV</button>
       <button class="hbtn hbtn-g" onclick="closeAnomalyModal()">閉じる</button>
     </div>
   </div>
@@ -680,7 +688,7 @@ const LC=['#6ec96e','#a89050','#b06ed0','#60b8e0','#e07060','#e0c040','#80c8b0',
 const BC=['#0f1f0f','#1e1c10','#1a0f1f','#0f1a2a','#2a0f0f','#2a2010','#102020','#1a1a1a','#252525','#2e2e2e'];
 const GRP_COLORS=['#c8f000','#00d4aa','#ff6b6b','#ffaa33','#6baaff','#ff6bcc','#aaffcc','#ffccaa','#ccaaff','#aaccff'];
 
-let rooms={},groups={},checkData={};
+let rooms={},groups={},checkData={},inspectionState={};
 // groups[roomName] = [{id,name,color,deviceIds:[]}]
 // checkData[dateStr][roomName][grpId] = {deviceId: {status:'ok'|'ng'|'warn'|null, note:''}}
 
@@ -703,19 +711,54 @@ const dayOfYear=d=>{const s=new Date(d.getFullYear(),0,0);return Math.floor((d-s
 // ════════════════════════════════════════════
 // TODAY'S GROUP
 // ════════════════════════════════════════════
+function getCalendarGrpIdx(dateStr, room=curRoom){
+  const grps=groups[room]||[];
+  if(!grps.length)return -1;
+  const [y,m,d]=dateStr.split('-').map(Number);
+  const dt=Date.UTC(y,m-1,d);
+  const dow=new Date(dt).getUTCDay();
+  if(dow===0)return -1;
+  const diff=Math.floor((dt-Date.UTC(2024,0,1))/86400000);
+  const weeks=Math.floor(diff/7);
+  const rem=((diff%7)+7)%7;
+  const inspectionIdx=weeks*6+rem;
+  return ((inspectionIdx%grps.length)+grps.length)%grps.length;
+}
 function getGrpIdxForDate(dateStr){
   const grps=getGrps();
   if(!grps.length)return -1;
-  const [y,m,d]=dateStr.split('-').map(Number);
-  const dt=new Date(y,m-1,d);
-  const dow=dt.getDay();
-  if(dow===0)return -1; // Sunday: no inspection
-  const epoch=new Date(2024,0,1);
-  const diff=Math.floor((dt-epoch)/86400000);
-  const weeks=Math.floor(diff/7);
-  const rem=diff%7;
-  const weekdayIdx=weeks*6+(rem<6?rem:5);
-  return weekdayIdx%grps.length;
+  if(new Date(dateStr+'T00:00:00').getDay()===0)return -1;
+  const assignedId=inspectionState[curRoom]?.assignments?.[dateStr];
+  if(assignedId){const i=grps.findIndex(g=>g.id===assignedId);if(i>=0)return i;}
+  const recordedIds=Object.keys(checkData[dateStr]?.[curRoom]||{});
+  if(recordedIds.length){const i=grps.findIndex(g=>recordedIds.includes(g.id));if(i>=0)return i;}
+  return getCalendarGrpIdx(dateStr);
+}
+function touchInspectionSchedule(){
+  const dateStr=today();
+  if(new Date(dateStr+'T00:00:00').getDay()===0)return false;
+  let changed=false;
+  Object.keys(rooms).forEach(room=>{
+    const grps=groups[room]||[];if(!grps.length)return;
+    let state=inspectionState[room];
+    if(!state){
+      const i=getCalendarGrpIdx(dateStr,room);
+      state=inspectionState[room]={groupId:grps[Math.max(0,i)]?.id,lastVisitDate:dateStr,assignments:{}};
+      changed=true;
+    }else if(!grps.some(g=>g.id===state.groupId)){
+      state.groupId=grps[Math.max(0,getCalendarGrpIdx(dateStr,room))].id;
+      state.lastVisitDate=dateStr;
+      changed=true;
+    }else if(state.lastVisitDate!==dateStr){
+      const current=grps.findIndex(g=>g.id===state.groupId);
+      state.groupId=grps[(current+1)%grps.length].id;
+      state.lastVisitDate=dateStr;
+      changed=true;
+    }
+    state.assignments=state.assignments||{};
+    if(state.assignments[dateStr]!==state.groupId){state.assignments[dateStr]=state.groupId;changed=true;}
+  });
+  return changed;
 }
 function getTodayGrpIdx(){
   return getGrpIdxForDate(today());
@@ -735,12 +778,12 @@ function getTodayGrp(){
 // STORAGE
 // ════════════════════════════════════════════
 // ── SERVER SYNC ─────────────────────────────
-let syncTimer=null, syncPending=false;
+let syncTimer=null, syncPending=false, serverRevision=0, syncChain=Promise.resolve();
 
 function setSyncStatus(s){
   const el=document.getElementById('syncStatus');if(!el)return;
-  const map={saving:'⟳ 保存中…',saved:'✓ 保存済み',error:'✗ 保存失敗',offline:'○ ローカル'};
-  const col={saving:'var(--t2)',saved:'var(--acc2)',error:'var(--err)',offline:'var(--t3)'};
+  const map={saving:'⟳ 保存中…',saved:'✓ 保存済み',error:'✗ 保存失敗',conflict:'⚠ 更新競合',offline:'○ ローカル'};
+  const col={saving:'var(--t2)',saved:'var(--acc2)',error:'var(--err)',conflict:'var(--warn)',offline:'var(--t3)'};
   el.textContent=map[s]||s;el.style.color=col[s]||'var(--t2)';
 }
 
@@ -750,25 +793,50 @@ async function saveAll(immediate=false){
   localStorage.setItem('rc_groups',JSON.stringify(groups));
   localStorage.setItem('rc_checks',JSON.stringify(checkData));
   localStorage.setItem('rc_free_eval',JSON.stringify(freeEvalData||{}));
+  localStorage.setItem('rc_inspection_state',JSON.stringify(inspectionState||{}));
   
-  if(immediate){await pushToServer();}
-  else{
-    setSyncStatus('saving');
-    clearTimeout(syncTimer);
-    syncTimer=setTimeout(pushToServer,1200);
-  }
+  setSyncStatus('saving');
+  syncPending=true;
+  syncChain=syncChain.then(async()=>{
+    if(!syncPending)return;
+    syncPending=false;
+    await pushToServer();
+  });
+  return syncChain;
 }
 
-async function pushToServer(){
+function mergeServerData(serverValue,localValue){
+  if(Array.isArray(localValue))return localValue;
+  if(!localValue||typeof localValue!=='object')return localValue;
+  const out={...(serverValue&&typeof serverValue==='object'?serverValue:{})};
+  Object.entries(localValue).forEach(([k,v])=>{out[k]=v&&typeof v==='object'&&!Array.isArray(v)?mergeServerData(out[k],v):v;});
+  return out;
+}
+
+async function pushToServer(retry=0){
   setSyncStatus('saving');
   try{
     let roomOrder=null;try{const s=localStorage.getItem('rc_room_order');if(s)roomOrder=JSON.parse(s);}catch(e){}
     const r=await fetch('/api/data',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({rooms,groups,checkData,freeEvalData:freeEvalData||{},roomOrder:roomOrder||Object.keys(rooms)})
+      body:JSON.stringify({rooms,groups,checkData,freeEvalData:freeEvalData||{},inspectionState:inspectionState||{},roomOrder:roomOrder||Object.keys(rooms),revision:serverRevision})
     });
+    if(r.status===409){
+      if(retry>=1){setSyncStatus('conflict');toast('同時更新が続いています。もう一度操作してください');return;}
+      const latestResponse=await fetch('/api/data');
+      if(!latestResponse.ok)throw new Error('Conflict reload failed');
+      const latest=await latestResponse.json();
+      rooms=mergeServerData(latest.rooms||{},rooms);
+      groups=mergeServerData(latest.groups||{},groups);
+      checkData=mergeServerData(latest.checkData||{},checkData);
+      freeEvalData=mergeServerData(latest.freeEvalData||{},freeEvalData);
+      inspectionState=mergeServerData(latest.inspectionState||{},inspectionState);
+      serverRevision=latest.revision||0;
+      return pushToServer(retry+1);
+    }
     if(!r.ok)throw new Error('HTTP '+r.status);
+    const saved=await r.json();serverRevision=saved.revision||serverRevision;
     setSyncStatus('saved');
   }catch(e){
     setSyncStatus('error');
@@ -787,7 +855,7 @@ async function loadAll(){
       const d=await r.json();
       // Always trust server
       if(true){
-        rooms=d.rooms||{};groups=d.groups||{};checkData=d.checkData||{};
+        rooms=d.rooms||{};groups=d.groups||{};checkData=d.checkData||{};inspectionState=d.inspectionState||{};serverRevision=d.revision||0;
         // Restore freeEvalData from server
         if(d.freeEvalData){
           freeEvalData=d.freeEvalData;
@@ -807,6 +875,7 @@ async function loadAll(){
   try{const r=localStorage.getItem('rc_rooms');if(r)rooms=JSON.parse(r);}catch(e){}
   try{const g=localStorage.getItem('rc_groups');if(g)groups=JSON.parse(g);}catch(e){}
   try{const c=localStorage.getItem('rc_checks');if(c)checkData=JSON.parse(c);}catch(e){}
+  try{const s=localStorage.getItem('rc_inspection_state');if(s)inspectionState=JSON.parse(s);}catch(e){}
   setSyncStatus('offline');
 }
 
@@ -1030,6 +1099,7 @@ async function init(){
   buildGrpColorPicker();buildSwatches();
   await loadAll();
   if(!Object.keys(rooms).length)initData();
+  if(touchInspectionSchedule())await saveAll(true);
   buildTabs();
   // Ensure check mode is active on startup
   setMode('check');
@@ -1180,6 +1250,7 @@ function renderHactions(){
     const sb=btn(el,'hbtn hbtn-a','💾 記録を保存',saveCheckData);sb.style.cssText+='font-weight:600;letter-spacing:.02em';
     btn(el,'hbtn hbtn-g','🎨',openTheme);
   } else if(curMode==='hist'){
+    btn(el,'hbtn hbtn-a','異常履歴CSV',exportAnomalyHistory);
     btn(el,'hbtn hbtn-r','履歴をクリア',clearHist);
     btn(el,'hbtn hbtn-g','🎨',openTheme);
   } else if(curMode==='edit'&&sa){
@@ -1316,7 +1387,7 @@ function renderSidebarGroup(sb){
         const dv=rooms[curRoom]?.find(d=>d.id===did);if(!dv)return;
         const it=document.createElement('div');it.className='dcl-item ok';
         it.innerHTML=`<div class="dcl-label">${esc(dv.label||dv.id)}</div><div class="dcl-status ok">✓</div>`;
-        it.onclick=()=>{g.deviceIds=g.deviceIds.filter(x=>x!==did);renderAll();};
+        it.onclick=()=>{g.deviceIds=g.deviceIds.filter(x=>x!==did);renderAll();saveAll();};
         list.appendChild(it);
       });
       if(!g.deviceIds.length){const e=document.createElement('div');e.style.cssText='font-size:10px;color:var(--t3);text-align:center;padding:8px 0';e.textContent='デバイス未設定';list.appendChild(e);}
@@ -1353,13 +1424,13 @@ function renderSidebarCheck(sb){
   // Date navigation
   const nav=document.createElement('div');nav.className='date-nav';
   const prevBtn=document.createElement('button');prevBtn.className='date-nav-btn';prevBtn.textContent='‹';
-  prevBtn.onclick=()=>{selectedDate=shiftDate(selectedDate,-1);renderAll();};
+  prevBtn.onclick=()=>setSelectedDate(shiftDate(selectedDate,-1));
   const dateInp=document.createElement('input');dateInp.type='date';dateInp.className='date-input';dateInp.value=selectedDate;
-  dateInp.onchange=()=>{if(dateInp.value&&dateInp.value!==selectedDate){selectedDate=dateInp.value;renderAll();}};
+  dateInp.onchange=()=>setSelectedDate(dateInp.value);
   const nextBtn=document.createElement('button');nextBtn.className='date-nav-btn';nextBtn.textContent='›';
-  nextBtn.onclick=()=>{selectedDate=shiftDate(selectedDate,1);renderAll();};
+  nextBtn.onclick=()=>setSelectedDate(shiftDate(selectedDate,1));
   const todayBtn=document.createElement('button');todayBtn.className='date-today-btn';todayBtn.textContent='今日';
-  todayBtn.onclick=()=>{selectedDate=todayStr;renderAll();};
+  todayBtn.onclick=()=>setSelectedDate(todayStr);
   nav.appendChild(prevBtn);nav.appendChild(dateInp);nav.appendChild(nextBtn);nav.appendChild(todayBtn);
   sec.appendChild(nav);
 
@@ -1689,10 +1760,10 @@ function onDM(e){
   const el=document.getElementById('dv_'+dragId);if(el){el.style.left=d.x+'px';el.style.top=d.y+'px';}
   const mx=d.x+d.w+60,my=d.y+d.h+60;if(parseInt(cv.style.width)<mx)cv.style.width=mx+'px';if(parseInt(cv.style.height)<my)cv.style.height=my+'px';
 }
-function onDU(){if(!dragId)return;const el=document.getElementById('dv_'+dragId);if(el)el.classList.remove('dragging');dragId=null;document.removeEventListener('mousemove',onDM);document.removeEventListener('mouseup',onDU);}
+function onDU(){if(!dragId)return;const el=document.getElementById('dv_'+dragId);if(el)el.classList.remove('dragging');dragId=null;document.removeEventListener('mousemove',onDM);document.removeEventListener('mouseup',onDU);saveAll();}
 function startResize(e,id){e.preventDefault();e.stopPropagation();pushHistory();resizing=true;resId=id;const d=getDev(id);rsX=e.clientX;rsY=e.clientY;rsW=d.w;rsH=d.h;document.addEventListener('mousemove',onRM);document.addEventListener('mouseup',onRU);}
 function onRM(e){if(!resizing)return;const d=getDev(resId);if(!d)return;d.w=snap(Math.max(8,rsW+(e.clientX-rsX)));d.h=snap(Math.max(8,rsH+(e.clientY-rsY)));const el=document.getElementById('dv_'+resId);if(el){el.style.width=d.w+'px';el.style.height=d.h+'px';}const fw=document.getElementById('fW'),fh=document.getElementById('fH');if(fw)fw.value=d.w;if(fh)fh.value=d.h;}
-function onRU(){resizing=false;document.removeEventListener('mousemove',onRM);document.removeEventListener('mouseup',onRU);if(resId){redrawDev(resId);}}
+function onRU(){resizing=false;document.removeEventListener('mousemove',onRM);document.removeEventListener('mouseup',onRU);if(resId){redrawDev(resId);saveAll();}resId=null;}
 
 // ════════════════════════════════════════════
 // PALETTE DROP
@@ -1710,7 +1781,7 @@ function cvDrop(e){
   const wr=document.getElementById('cWrap');const r=wr.getBoundingClientRect();
   const x=snap(e.clientX-r.left+wr.scrollLeft-28),y=snap(e.clientY-r.top+wr.scrollTop-20);
   const sz=DEF[type];const nd=mkDev(type,type==='mon'?'モニター':'新規',x,y,sz.w,sz.h);
-  pushHistory();rooms[curRoom].push(nd);document.getElementById('ghost').style.display='none';palType=null;renderCanvas();selectDev(nd.id);renderSidebar();toast('追加しました');
+  pushHistory();rooms[curRoom].push(nd);document.getElementById('ghost').style.display='none';palType=null;renderCanvas();selectDev(nd.id);renderSidebar();saveAll();toast('追加しました');
 }
 function cvDragLeave(e){
   // Only clear if actually leaving the canvas-wrap (not entering a child)
@@ -1732,18 +1803,15 @@ function applyField(f,v){
   d[f]=v;
   if(f==='pc'||f==='monitor'){if(d.pc&&d.monitor)d.label=d.pc+'-'+d.monitor;const fl=document.getElementById('fLabel');if(fl)fl.value=d.label;}
   redrawDev(selId);
-  // auto-save color/style changes
-  if(['color','bgColor','label','pc','monitor','note','fontSize','bold','italic','vertical','type'].includes(f)){
-    saveAll();
-  }
+  saveAll();
 }
-function adjSize(f,delta){const d=getDev(selId);if(!d)return;d[f]=snap(Math.max(8,d[f]+delta));const el=document.getElementById(f==='w'?'fW':'fH');if(el)el.value=d[f];redrawDev(selId);}
-function adjField(f,delta,mn,mx){const d=getDev(selId);if(!d)return;d[f]=Math.min(mx,Math.max(mn,(d[f]||8)+delta));const el=document.getElementById('f'+f[0].toUpperCase()+f.slice(1));if(el)el.value=d[f];redrawDev(selId);}
-function tgl(f){const d=getDev(selId);if(!d)return;d[f]=!d[f];const el=document.getElementById(f==='bold'?'fsB':f==='italic'?'fsI':'fsV');if(el)el.classList.toggle('on',d[f]);redrawDev(selId);}
-function dupSel(){const d=getDev(selId);if(!d)return;pushHistory();const nd={...d,id:uid(),x:d.x+16,y:d.y+16};rooms[curRoom].push(nd);renderCanvas();selectDev(nd.id);renderSidebar();toast('複製しました');}
-function delSel(){if(!selId)return;pushHistory();rooms[curRoom]=rooms[curRoom].filter(d=>d.id!==selId);selId=null;renderCanvas();renderSidebar();toast('削除しました');}
-function bringFront(){const d=getDev(selId);if(!d)return;d.zIndex=Math.max(...getDevs().map(d=>d.zIndex||1))+1;renderCanvas();selectDev(selId);}
-function sendBack(){const d=getDev(selId);if(!d)return;d.zIndex=Math.max(0,(d.zIndex||1)-1);renderCanvas();selectDev(selId);}
+function adjSize(f,delta){const d=getDev(selId);if(!d)return;d[f]=snap(Math.max(8,d[f]+delta));const el=document.getElementById(f==='w'?'fW':'fH');if(el)el.value=d[f];redrawDev(selId);saveAll();}
+function adjField(f,delta,mn,mx){const d=getDev(selId);if(!d)return;d[f]=Math.min(mx,Math.max(mn,(d[f]||8)+delta));const el=document.getElementById('f'+f[0].toUpperCase()+f.slice(1));if(el)el.value=d[f];redrawDev(selId);saveAll();}
+function tgl(f){const d=getDev(selId);if(!d)return;d[f]=!d[f];const el=document.getElementById(f==='bold'?'fsB':f==='italic'?'fsI':'fsV');if(el)el.classList.toggle('on',d[f]);redrawDev(selId);saveAll();}
+function dupSel(){const d=getDev(selId);if(!d)return;pushHistory();const nd={...d,id:uid(),x:d.x+16,y:d.y+16};rooms[curRoom].push(nd);renderCanvas();selectDev(nd.id);renderSidebar();saveAll();toast('複製しました');}
+function delSel(){if(!selId)return;pushHistory();rooms[curRoom]=rooms[curRoom].filter(d=>d.id!==selId);selId=null;renderCanvas();renderSidebar();saveAll();toast('削除しました');}
+function bringFront(){const d=getDev(selId);if(!d)return;d.zIndex=Math.max(...getDevs().map(d=>d.zIndex||1))+1;renderCanvas();selectDev(selId);saveAll();}
+function sendBack(){const d=getDev(selId);if(!d)return;d.zIndex=Math.max(0,(d.zIndex||1)-1);renderCanvas();selectDev(selId);saveAll();}
 
 // ════════════════════════════════════════════
 // GROUP MODE
@@ -1754,7 +1822,7 @@ function toggleDevInGrp(id){
   const g=groups[curRoom].find(x=>x.id===selGrpId);if(!g)return;
   if(g.deviceIds.includes(id))g.deviceIds=g.deviceIds.filter(x=>x!==id);
   else g.deviceIds.push(id);
-  renderAll();toast(g.deviceIds.includes(id)?'追加しました':'解除しました');
+  renderAll();saveAll();toast(g.deviceIds.includes(id)?'追加しました':'解除しました');
 }
 function openGrpModal(){newGrpColor=GRP_COLORS[0];document.querySelectorAll('#grpColorPicker div').forEach((s,i)=>{s.style.borderColor=i===0?'#fff':'transparent';});document.getElementById('gName').value='';document.getElementById('grpModal').classList.add('open');}
 function confirmAddGrp(){
@@ -1762,10 +1830,10 @@ function confirmAddGrp(){
   if(!groups[curRoom])groups[curRoom]=[];
   const g={id:uid(),name,color:newGrpColor,deviceIds:[]};
   groups[curRoom].push(g);selGrpId=g.id;
-  closeModal('grpModal');renderAll();toast('グループを作成しました');
+  closeModal('grpModal');renderAll();saveAll();toast('グループを作成しました');
 }
-function delGrp(id,e){e.stopPropagation();if(!groups[curRoom])return;groups[curRoom]=groups[curRoom].filter(g=>g.id!==id);if(selGrpId===id)selGrpId=null;renderAll();toast('削除しました');}
-function clearGrpDevs(id){const g=getGrps().find(x=>x.id===id);if(g){g.deviceIds=[];renderAll();}}
+function delGrp(id,e){e.stopPropagation();if(!groups[curRoom])return;groups[curRoom]=groups[curRoom].filter(g=>g.id!==id);if(selGrpId===id)selGrpId=null;renderAll();saveAll();toast('削除しました');}
+function clearGrpDevs(id){const g=getGrps().find(x=>x.id===id);if(g){g.deviceIds=[];renderAll();saveAll();}}
 
 // ════════════════════════════════════════════
 // CHECK MODE
@@ -1789,7 +1857,7 @@ function openCheckPopupForDev(id,e){
   const grp=getTodayGrp();if(!grp||!grp.deviceIds.includes(id))return;
   const dv=getDev(id);if(!dv)return;
   checkPopupDevId=id;
-  const dateStr=today();
+  const dateStr=selectedDate||today();
   const curSt=getCheckStatus(dateStr,id);
   const curNote=checkData[dateStr]?.[curRoom]?.[grp.id]?.[id]?.note||'';
   const popup=document.getElementById('checkPopup');
@@ -1926,7 +1994,7 @@ function scrollToDevice(id){
 
 
 function markAllOk(){
-  const todayStr=today();
+  const todayStr=selectedDate||today();
   const grp=getTodayGrp();
   if(!grp||!grp.deviceIds.length)return;
   if(!checkData[todayStr])checkData[todayStr]={};
@@ -1967,16 +2035,16 @@ function confirmAdd(){
   const w=Math.max(8,+document.getElementById('mW').value||56),h=Math.max(8,+document.getElementById('mH').value||40);
   const wr=document.getElementById('cWrap');
   const nd=mkDev(type,lbl,snap(wr.scrollLeft+40),snap(wr.scrollTop+40),w,h,{pc,monitor:mn});
-  rooms[curRoom].push(nd);closeModal('addModal');renderCanvas();selectDev(nd.id);renderSidebar();toast('追加しました');
+  rooms[curRoom].push(nd);closeModal('addModal');renderCanvas();selectDev(nd.id);renderSidebar();saveAll();toast('追加しました');
 }
-function confirmAddRoom(){const name=document.getElementById('rName').value.trim();if(!name)return;if(rooms[name]){toast('既に存在します');return;}rooms[name]=[];closeModal('roomModal');curRoom=name;buildTabs();renderAll();toast('教室を作成しました');}
+function confirmAddRoom(){const name=document.getElementById('rName').value.trim();if(!name)return;if(rooms[name]){toast('既に存在します');return;}rooms[name]=[];closeModal('roomModal');curRoom=name;buildTabs();renderAll();saveAll();toast('教室を作成しました');}
 function closeModal(id,e){if(e&&e.target!==document.getElementById(id))return;document.getElementById(id).classList.remove('open');}
 
 // ════════════════════════════════════════════
 // SAVE / EXPORT
 // ════════════════════════════════════════════
 function saveLayout(){saveAll(true);toast('保存しました ✓');}
-function exportJSON(){const bl=new Blob([JSON.stringify({rooms,groups,checkData},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download='roomcheck_export.json';a.click();toast('Exportしました');}
+function exportJSON(){const bl=new Blob([JSON.stringify({rooms,groups,checkData,freeEvalData,inspectionState,roomOrder:getRoomOrder()},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download='roomcheck_export.json';a.click();toast('Exportしました');}
 
 // ════════════════════════════════════════════
 // HELPERS
@@ -2003,42 +2071,9 @@ document.addEventListener('keydown',e=>{
   if(!selId)return;const d=getDev(selId);if(!d)return;
   const step=e.shiftKey?GRID*4:GRID;
   const map={ArrowLeft:()=>d.x-=step,ArrowRight:()=>d.x+=step,ArrowUp:()=>d.y-=step,ArrowDown:()=>d.y+=step};
-  if(map[e.key]){e.preventDefault();map[e.key]();const el=document.getElementById('dv_'+d.id);if(el){el.style.left=d.x+'px';el.style.top=d.y+'px';}}
+  if(map[e.key]){e.preventDefault();map[e.key]();const el=document.getElementById('dv_'+d.id);if(el){el.style.left=d.x+'px';el.style.top=d.y+'px';}saveAll();}
 });
 
-
-// ════════════════════════════════════════════
-// LOGIN
-// ════════════════════════════════════════════
-const CREDS={user:'FIT.ITC.PC',pass:'FIT.ITC.2887'};
-function checkLogin(){
-  const ok=sessionStorage.getItem('rc_auth')==='1';
-  if(ok){
-    const ls=document.getElementById('loginScreen');
-    if(ls){ls.classList.add('hidden');ls.style.display='none';}
-  }
-}
-function doLogin(){
-  try{
-    const u=document.getElementById('loginUser').value.trim();
-    const p=document.getElementById('loginPass').value;
-    if(u===CREDS.user&&p===CREDS.pass){
-      sessionStorage.setItem('rc_auth','1');
-      const ls=document.getElementById('loginScreen');
-      ls.style.transition='opacity .3s';
-      ls.style.opacity='0';
-      setTimeout(()=>{ls.style.display='none';},350);
-    } else {
-      const err=document.getElementById('loginErr');
-      err.textContent='ユーザー名またはパスワードが違います';
-      document.getElementById('loginPass').value='';
-      document.getElementById('loginPass').focus();
-      const box=document.querySelector('.login-box');
-      box.style.transform='translateX(-6px)';
-      setTimeout(()=>{box.style.transform='translateX(6px)';setTimeout(()=>{box.style.transform='';},80);},80);
-    }
-  }catch(e){alert('エラー: '+e.message);}
-}
 
 // ════════════════════════════════════════════
 // THEME
@@ -2313,6 +2348,7 @@ function onBoxEnd(e){
     ids.forEach(id=>{if(!g.deviceIds.includes(id)){g.deviceIds.push(id);added++;}});
     clearBoxSel();
     renderAll();
+    saveAll();
     toast(added+'台をグループに追加しました');
   } else if(curMode==='edit'){
     // Show toolbar with options
@@ -2601,6 +2637,7 @@ function addBoxSelToGrp(){
   [...boxSelectedIds].forEach(id=>{if(!g.deviceIds.includes(id)){g.deviceIds.push(id);added++;}});
   clearBoxSel();
   renderAll();
+  saveAll();
   toast(added+'台をグループに追加しました');
 }
 
@@ -2610,6 +2647,7 @@ function delBoxSel(){
   clearBoxSel();
   renderCanvas();
   updateStatus();
+  saveAll();
   toast('削除しました');
 }
 
@@ -2652,6 +2690,7 @@ function onGroupDragEnd(){
   document.querySelectorAll('.box-dragging').forEach(el=>el.classList.remove('box-dragging'));
   document.removeEventListener('mousemove',onGroupDragMove);
   document.removeEventListener('mouseup',onGroupDragEnd);
+  saveAll();
   toast('移動しました');
 }
 
@@ -2700,9 +2739,6 @@ async function loadSnapshotInfo(){
 }
 
 async function saveSnapshot(){
-  const pw=prompt('パスワードを入力してください:');
-  if(pw===null)return;
-  if(pw!==CREDS.pass){toast('パスワードが違います');return;}
   if(!confirm('現在のデータを復元ポイントとして保存しますか？\n既存の復元ポイントは上書きされます。'))return;
   // First push latest data to server
   await saveAll(true);
@@ -2719,9 +2755,6 @@ async function saveSnapshot(){
 }
 
 async function restoreSnapshot(){
-  const pw=prompt('パスワードを入力してください:');
-  if(pw===null)return;
-  if(pw!==CREDS.pass){toast('パスワードが違います');return;}
   if(!confirm('⚠️ 復元ポイントから復元しますか？\n現在のデータは上書きされます。'))return;
   try{
     const r=await fetch('/api/snapshot/restore',{method:'POST'});
@@ -2729,6 +2762,7 @@ async function restoreSnapshot(){
       toast('🔄 復元ポイントから復元しました');
       // Reload data
       await loadAll();
+      if(touchInspectionSchedule())await saveAll(true);
       buildTabs();renderAll();
       closeRightDrawer();
     } else {
@@ -2769,7 +2803,7 @@ function toggleSidebar(){
 // ════════════════════════════════════════════
 // ANOMALY MODAL
 // ════════════════════════════════════════════
-function getUnresolvedAnomalies(){
+function getAllAnomalies(){
   const result=[];
   // From official checkData
   Object.entries(checkData).forEach(([dateStr,roomData])=>{
@@ -2777,10 +2811,10 @@ function getUnresolvedAnomalies(){
       Object.entries(grpData).forEach(([grpId,devData])=>{
         Object.entries(devData).forEach(([did,entry])=>{
           const {status,note,resolved}=entry;
-          if((status==='ng'||status==='warn')&&!resolved){
+          if(status==='ng'||status==='warn'){
             const dv=(rooms[room]||[]).find(d=>d.id===did);
             const grp=(groups[room]||[]).find(g=>g.id===grpId);
-            result.push({dateStr,room,grpId,grpName:grp?grp.name:grpId,did,label:dv?dv.label:did,status,note:note||'',source:'check'});
+            result.push({dateStr,room,grpId,grpName:grp?grp.name:grpId,did,label:dv?dv.label:did,status,note:note||'',resolved:!!resolved,source:'check'});
           }
         });
       });
@@ -2791,14 +2825,34 @@ function getUnresolvedAnomalies(){
     Object.entries(roomData).forEach(([room,devData])=>{
       Object.entries(devData).forEach(([did,entry])=>{
         const {status,note,resolved}=entry;
-        if((status==='ng'||status==='warn')&&!resolved){
+        if(status==='ng'||status==='warn'){
           const dv=(rooms[room]||[]).find(d=>d.id===did);
-          result.push({dateStr,room,grpId:null,grpName:'自由評価',did,label:dv?dv.label:did,status,note:note||'',source:'free'});
+          result.push({dateStr,room,grpId:null,grpName:'自由評価',did,label:dv?dv.label:did,status,note:note||'',resolved:!!resolved,source:'free'});
         }
       });
     });
   });
   return result.sort((a,b)=>b.dateStr.localeCompare(a.dateStr));
+}
+function getUnresolvedAnomalies(){return getAllAnomalies().filter(it=>!it.resolved);}
+
+function exportAnomalyHistory(){
+  const rows=getAllAnomalies();
+  const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  const header=['日付','教室','グループ','設備','状態','修復状態','メモ','記録種別'];
+  const body=rows.map(it=>[
+    it.dateStr,it.room,it.grpName,it.label,
+    it.status==='ng'?'異常':'要注意',
+    it.resolved?'修復済み':'未修復',
+    it.note,it.source==='check'?'定期検査':'自由評価'
+  ].map(q).join(','));
+  const blob=new Blob(['\uFEFF'+[header.map(q).join(','),...body].join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='anomaly_history_'+today()+'.csv';
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  toast(rows.length+'件の異常履歴を出力しました');
 }
 
 function jumpToDevice(room, did){
@@ -2921,24 +2975,47 @@ function setFreeEvalStatus(did,status,note=''){
   saveFreeEval();
 }
 
+function setSelectedDate(value){
+  if(!value||value===selectedDate)return;
+  selectedDate=value;
+  closeCheckPopup();
+  renderAll();
+  if(typeof syncMobileDateInp==='function')syncMobileDateInp();
+}
+
+let sceneTimer=null;
+function playSceneTransition(label){
+  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  const layer=document.getElementById('sceneTransition');
+  const text=document.getElementById('sceneLabel');
+  if(!layer||!text)return;
+  text.textContent=label;
+  layer.classList.remove('play');
+  document.body.classList.remove('scene-refresh');
+  void layer.offsetWidth;
+  layer.classList.add('play');
+  document.body.classList.add('scene-refresh');
+  clearTimeout(sceneTimer);
+  sceneTimer=setTimeout(()=>{layer.classList.remove('play');document.body.classList.remove('scene-refresh');},2200);
+}
+
 // startup
 (async()=>{
   try{
-    loadTheme().catch(()=>{});
-    checkLogin();
-    await init();
-    initBoxSelect();
+    await loadTheme().catch(()=>{});
     selectedDate=today();
-    loadFreeEval();
+    await init();
+    document.body.classList.add('ui-ready');
+    playSceneTransition('FIT · ITC · PC');
+    initBoxSelect();
     checkAnomalyOnLogin();
   }catch(e){
     console.error('Startup error:',e);
-    // Even if init fails, make sure login works
-    document.getElementById('loginScreen').style.display='flex';
-    document.getElementById('loginScreen').style.opacity='1';
+    toast('起動に失敗しました。ページを再読み込みしてください');
   }
 })();
 
 </script>
+<script src="/ux-polish.js"></script>
 </body>
 </html>

@@ -1,29 +1,136 @@
 const express = require('express');
-const cors    = require('cors');
 const fs      = require('fs');
 const path    = require('path');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
-const DATA_FILE  = path.join(__dirname, 'data', 'roomcheck.json');
-const THEME_FILE = path.join(__dirname, 'data', 'theme.json');
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+const DATA_FILE  = path.join(DATA_DIR, 'roomcheck.json');
+const THEME_FILE = path.join(DATA_DIR, 'theme.json');
+const DEFAULT_DATA_FILE = path.join(__dirname, 'defaults', 'roomcheck.default.json');
+const CURRENT_COORDINATE_SET = 'corrected-2026-09-02';
 
-app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 function ensureDir() {
-  const dir = path.join(__dirname, 'data');
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+function readDefaultData() {
+  return JSON.parse(fs.readFileSync(DEFAULT_DATA_FILE, 'utf8'));
+}
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+function migrateToDefaultCoordinates(current) {
+  const defaults = readDefaultData();
+  const deviceMaps = {};
+  const groupMaps = {};
+
+  for (const [room, defaultDevices] of Object.entries(defaults.rooms || {})) {
+    const defaultIds = new Set(defaultDevices.map(d => d.id));
+    const byIdentity = new Map(defaultDevices.map(d => [`${d.type}|${d.label}|${d.pc || ''}|${d.monitor || ''}`, d.id]));
+    deviceMaps[room] = {};
+    for (const device of current.rooms?.[room] || []) {
+      const key = `${device.type}|${device.label}|${device.pc || ''}|${device.monitor || ''}`;
+      const mapped = defaultIds.has(device.id) ? device.id : byIdentity.get(key);
+      if (mapped) deviceMaps[room][device.id] = mapped;
+    }
+
+    const defaultGroups = defaults.groups?.[room] || [];
+    const defaultGroupIds = new Set(defaultGroups.map(g => g.id));
+    const byName = new Map(defaultGroups.map(g => [g.name, g.id]));
+    groupMaps[room] = {};
+    for (const group of current.groups?.[room] || []) {
+      const mapped = defaultGroupIds.has(group.id) ? group.id : byName.get(group.name);
+      if (mapped) groupMaps[room][group.id] = mapped;
+    }
+  }
+
+  const checkData = clone(defaults.checkData || {});
+  for (const [date, roomData] of Object.entries(current.checkData || {})) {
+    for (const [room, groupData] of Object.entries(roomData || {})) {
+      if (!defaults.rooms?.[room]) continue;
+      for (const [oldGroupId, deviceData] of Object.entries(groupData || {})) {
+        const groupId = groupMaps[room]?.[oldGroupId];
+        if (!groupId) continue;
+        for (const [oldDeviceId, entry] of Object.entries(deviceData || {})) {
+          const deviceId = deviceMaps[room]?.[oldDeviceId];
+          if (!deviceId) continue;
+          checkData[date] ||= {};
+          checkData[date][room] ||= {};
+          checkData[date][room][groupId] ||= {};
+          checkData[date][room][groupId][deviceId] = entry;
+        }
+      }
+    }
+  }
+
+  const freeEvalData = clone(defaults.freeEvalData || {});
+  for (const [date, roomData] of Object.entries(current.freeEvalData || {})) {
+    for (const [room, deviceData] of Object.entries(roomData || {})) {
+      if (!defaults.rooms?.[room]) continue;
+      for (const [oldDeviceId, entry] of Object.entries(deviceData || {})) {
+        const deviceId = deviceMaps[room]?.[oldDeviceId];
+        if (!deviceId) continue;
+        freeEvalData[date] ||= {};
+        freeEvalData[date][room] ||= {};
+        freeEvalData[date][room][deviceId] = entry;
+      }
+    }
+  }
+
+  const inspectionState = {};
+  for (const [room, state] of Object.entries(current.inspectionState || {})) {
+    const groupId = groupMaps[room]?.[state.groupId];
+    if (!groupId) continue;
+    const assignments = {};
+    for (const [date, oldGroupId] of Object.entries(state.assignments || {})) {
+      const mapped = groupMaps[room]?.[oldGroupId];
+      if (mapped) assignments[date] = mapped;
+    }
+    inspectionState[room] = { ...state, groupId, assignments };
+  }
+
+  return {
+    ...current,
+    rooms: clone(defaults.rooms || {}),
+    groups: clone(defaults.groups || {}),
+    checkData,
+    freeEvalData,
+    inspectionState,
+    roomOrder: clone(defaults.roomOrder || Object.keys(defaults.rooms || {})),
+    coordinateSetVersion: CURRENT_COORDINATE_SET,
+    revision: (current.revision || 0) + 1,
+    migratedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
 }
 function readData() {
   ensureDir();
-  try { return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); }
-  catch(e) { return { rooms:{}, groups:{}, checkData:{}, freeEvalData:{}, roomOrder:[] }; }
+  if (!fs.existsSync(DATA_FILE)) {
+    const seeded = readDefaultData();
+    seeded.coordinateSetVersion = CURRENT_COORDINATE_SET;
+    seeded.revision = 0;
+    seeded.updatedAt = new Date().toISOString();
+    writeData(seeded);
+    return seeded;
+  }
+  const current = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+  if (current.coordinateSetVersion !== CURRENT_COORDINATE_SET) {
+    const migrated = migrateToDefaultCoordinates(current);
+    writeData(migrated);
+    return migrated;
+  }
+  return current;
 }
 function writeData(d) {
   ensureDir();
-  fs.writeFileSync(DATA_FILE, JSON.stringify(d, null, 2));
+  const tmp = `${DATA_FILE}.tmp`;
+  const backup = `${DATA_FILE}.bak`;
+  fs.writeFileSync(tmp, JSON.stringify(d, null, 2));
+  if (fs.existsSync(DATA_FILE)) fs.copyFileSync(DATA_FILE, backup);
+  fs.renameSync(tmp, DATA_FILE);
 }
 function readTheme() {
   ensureDir();
@@ -44,20 +151,35 @@ app.get('/', (req, res) => {
 });
 
 // GET /api/data — 全データ返す
-app.get('/api/data', (req, res) => res.json(readData()));
+app.get('/api/data', (req, res) => {
+  const data = readData();
+  res.json({ ...data, revision: data.revision || 0 });
+});
 
 // POST /api/data — 全データ保存（freeEvalData含む）
 app.post('/api/data', (req, res) => {
-  const { rooms, groups, checkData, freeEvalData, roomOrder } = req.body;
-  if (!rooms) return res.status(400).json({ error: 'invalid payload' });
+  const { rooms, groups, checkData, freeEvalData, inspectionState, roomOrder, revision } = req.body;
+  if (!rooms || typeof rooms !== 'object' || Array.isArray(rooms)) {
+    return res.status(400).json({ error: 'invalid payload' });
+  }
+  const current = readData();
+  const currentRevision = current.revision || 0;
+  if (revision !== undefined && revision !== currentRevision) {
+    return res.status(409).json({ error: 'data_conflict', revision: currentRevision });
+  }
+  const nextRevision = currentRevision + 1;
   writeData({
     rooms,
     groups: groups||{},
     checkData: checkData||{},
     freeEvalData: freeEvalData||{},
-    roomOrder: roomOrder||[]
+    inspectionState: inspectionState||{},
+    roomOrder: roomOrder||[],
+    coordinateSetVersion: current.coordinateSetVersion || CURRENT_COORDINATE_SET,
+    revision: nextRevision,
+    updatedAt: new Date().toISOString()
   });
-  res.json({ ok: true, savedAt: new Date().toISOString() });
+  res.json({ ok: true, revision: nextRevision, savedAt: new Date().toISOString() });
 });
 
 app.get('/api/theme', (req, res) => {
@@ -81,7 +203,7 @@ app.post('/api/restore-point/restore', (req, res) => res.redirect(307, '/api/sna
 // GET /api/snapshot - get snapshot info
 app.get('/api/snapshot', (req, res) => {
   ensureDir();
-  const snapFile = path.join(__dirname, 'data', 'snapshot.json');
+  const snapFile = path.join(DATA_DIR, 'snapshot.json');
   try {
     const snap = JSON.parse(fs.readFileSync(snapFile, 'utf8'));
     res.json({ ok: true, savedAt: snap.savedAt, roomCount: Object.keys(snap.rooms||{}).length });
@@ -93,7 +215,7 @@ app.get('/api/snapshot', (req, res) => {
 // POST /api/snapshot/save - save current data as snapshot
 app.post('/api/snapshot/save', (req, res) => {
   ensureDir();
-  const snapFile = path.join(__dirname, 'data', 'snapshot.json');
+  const snapFile = path.join(DATA_DIR, 'snapshot.json');
   try {
     const current = readData();
     current.savedAt = new Date().toISOString();
@@ -107,11 +229,13 @@ app.post('/api/snapshot/save', (req, res) => {
 // POST /api/snapshot/restore - restore snapshot to main data
 app.post('/api/snapshot/restore', (req, res) => {
   ensureDir();
-  const snapFile = path.join(__dirname, 'data', 'snapshot.json');
+  const snapFile = path.join(DATA_DIR, 'snapshot.json');
   try {
     const snap = JSON.parse(fs.readFileSync(snapFile, 'utf8'));
-    writeData({ rooms: snap.rooms||{}, groups: snap.groups||{}, checkData: snap.checkData||{}, freeEvalData: snap.freeEvalData||{}, roomOrder: snap.roomOrder||[] });
-    res.json({ ok: true, savedAt: snap.savedAt });
+    const currentRevision = readData().revision || 0;
+    writeData({ rooms: snap.rooms||{}, groups: snap.groups||{}, checkData: snap.checkData||{}, freeEvalData: snap.freeEvalData||{}, inspectionState: snap.inspectionState||{}, roomOrder: snap.roomOrder||[], coordinateSetVersion: snap.coordinateSetVersion||'', revision: currentRevision + 1, updatedAt: new Date().toISOString() });
+    const restored = readData();
+    res.json({ ok: true, savedAt: snap.savedAt, revision: restored.revision });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
@@ -120,6 +244,11 @@ app.post('/api/snapshot/restore', (req, res) => {
 app.get('*', (req, res) => {
   const ua = req.headers['user-agent'] || '';
   res.sendFile(path.join(__dirname, 'public', isMobile(ua) ? 'mobile.html' : 'index.html'));
+});
+
+app.use((err, _req, res, _next) => {
+  console.error(err);
+  res.status(500).json({ error: 'server_error' });
 });
 
 app.listen(PORT, () => console.log(`RoomCheck running on port ${PORT}`));
