@@ -48,3 +48,13 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
  .bottom-tabs .btab.on::after,.bottom-tabs .btab-menu::after{display:none!important}
  .bottom-tabs .btab-menu{border-left:1px solid var(--b2)!important}
 }
+/* Full-height panels must stay above the persistent bottom navigation on both
+   desktop and mobile, otherwise its buttons cover the panel's final controls. */
+.rdrawer-bg{z-index:1550!important}
+.rdrawer,#themePanel{z-index:1600!important}
+
+/* These labels describe editable settings, so they need normal secondary-text
+   contrast instead of the intentionally dim "weak text" color. */
+#themePanel .tp-sec-title,#themePanel .tp-lbl,#themePanel [style*="color:var(--t3)"],
+#themePanel .snap-info{color:var(--t2)!important}
+#themePanel .snap-info.has-snap{color:var(--acc2)!important}

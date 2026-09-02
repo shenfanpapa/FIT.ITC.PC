@@ -1,0 +1,6 @@
+#whalePet{position:fixed;left:0;top:0;width:112px;height:112px;z-index:1200;pointer-events:none;user-select:none;will-change:transform,opacity;transition:opacity .18s ease;filter:drop-shadow(0 7px 12px rgba(0,0,0,.34))}
+#whalePet video{display:block;width:100%;height:100%;object-fit:contain}
+#whalePet.is-resting{filter:drop-shadow(0 5px 10px rgba(0,0,0,.28))}
+#rdrawer.open~#whalePet,#themePanel.open~#whalePet{opacity:0}
+@media(max-width:768px){#whalePet{display:none}}
+@media(prefers-reduced-motion:reduce){#whalePet{width:88px;height:88px;right:18px;left:auto!important;top:auto!important;bottom:84px;transform:none!important}#whalePet video{animation:none!important}}
