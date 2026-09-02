@@ -3,8 +3,10 @@
   const reduced=matchMedia('(prefers-reduced-motion: reduce)'),pet=document.createElement('div'),bubble=document.createElement('div');
   const makeVideo=src=>{const video=document.createElement('video');video.src=src;video.muted=true;video.playsInline=true;video.preload='auto';video.disablePictureInPicture=true;video.setAttribute('disablepictureinpicture','');video.setAttribute('controlslist','nodownload noremoteplayback nopictureinpicture');return video;};
   const idle=makeVideo('/assets/whale-pet/whale-idle.webm'),walk=makeVideo('/assets/whale-pet/whale-walk.webm');
-  pet.id='whalePet';bubble.id='whalePetBubble';bubble.textContent='こんにちは。話しかけてね。';bubble.classList.add('show');pet.append(idle,walk);document.body.append(pet,bubble);
-  let x=40,y=40,vx=0,vy=0,dragging=false,last,mode='idle',active=idle,frameId=null;
+  pet.id='whalePet';bubble.id='whalePetBubble';pet.append(idle,walk);document.body.append(pet,bubble);
+  let x=40,y=40,vx=0,vy=0,dragging=false,last,mode='idle',active=idle,frameId=null,bubbleTimer=null;
+  const say=(text,duration=5000)=>{bubble.textContent=text;bubble.classList.add('show');clearTimeout(bubbleTimer);bubbleTimer=setTimeout(()=>bubble.classList.remove('show'),duration);};
+  window.whalePetSay=say;say('こんにちは。話しかけてね。');
   const floor=()=>{const tabs=document.getElementById('bottomTabs');return tabs?tabs.getBoundingClientRect().top-208:innerHeight-208};
   // The supplied walk clip faces screen-left by default, so mirror it while travelling right.
   const setFacing=()=>{walk.style.transform=vx<0?'scaleX(1)':'scaleX(-1)';};
