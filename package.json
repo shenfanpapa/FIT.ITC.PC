@@ -1,6 +1,6 @@
 {
   "name": "roomcheck-server",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "教室設備管理システム",
   "main": "server.js",
   "scripts": {

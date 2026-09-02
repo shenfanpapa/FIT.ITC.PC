@@ -11,3 +11,20 @@ function update(){if(!document.body.classList.contains('ui-ready'))return;const 
 function init(){if(S.ready)return;S.ready=true;build();labels();document.addEventListener('click',()=>setTimeout(()=>{S.key='';update()},40),true);setInterval(update,1000);update()}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
+/* v1.5.2: turn the mobile sidebar toggle into a real drawer. */
+(function(){
+ function setupMobileSidebar(){
+  const wrap=document.querySelector('.sidebar-wrap'),arrow=document.getElementById('toggleArrow');
+  if(!wrap||document.getElementById('uxSidebarBackdrop'))return;
+  const bg=document.createElement('div');bg.id='uxSidebarBackdrop';bg.className='ux-sidebar-backdrop';document.body.appendChild(bg);
+  const close=()=>{wrap.classList.remove('ux-open');bg.classList.remove('open');if(arrow)arrow.textContent='▶'};
+  window.toggleSidebar=function(){
+   if(window.innerWidth>768){const sb=document.getElementById('sidebar');sb.classList.toggle('collapsed');if(arrow)arrow.textContent=sb.classList.contains('collapsed')?'▶':'◀';return;}
+   const open=!wrap.classList.contains('ux-open');
+   if(open&&typeof renderSidebar==='function')renderSidebar();
+   wrap.classList.toggle('ux-open',open);bg.classList.toggle('open',open);if(arrow)arrow.textContent=open?'◀':'▶';
+  };
+  bg.addEventListener('click',close);document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setupMobileSidebar,{once:true});else setupMobileSidebar();
+})();
