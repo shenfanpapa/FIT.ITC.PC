@@ -241,6 +241,44 @@ app.post('/api/snapshot/restore', (req, res) => {
   }
 });
 
+const PC_CHAT_PASSWORD = process.env.PET_CHAT_PASSWORD || '';
+app.post('/api/pet/chat', async (req, res) => {
+  if (!process.env.OPENAI_API_KEY || !PC_CHAT_PASSWORD) {
+    return res.status(503).json({ message: 'AIはまだ設定されていません。管理者が OPENAI_API_KEY と PET_CHAT_PASSWORD を設定してください。' });
+  }
+  if (req.get('x-pet-password') !== PC_CHAT_PASSWORD) {
+    return res.status(401).json({ message: '合言葉が違うみたいです。もう一度お願いします。' });
+  }
+  const message = String(req.body?.message || '').trim();
+  if (!message || message.length > 600) return res.status(400).json({ message: '質問は600文字以内で入力してください。' });
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
+  try {
+    const response = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST', signal: controller.signal,
+      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+        instructions: 'あなたはFIT.ITC.PCの案内ペット「鯨」です。日本語で、丁寧で少しだけツンとした可愛い口調で答えます。サイトの点検、履歴、グループ、レイアウト、テーマ、復元の使い方を短い手順で案内します。個人名、連絡先、学籍番号などの個人情報は扱わず、分からない内容は職員へ報告するよう案内してください。',
+        input: message, max_output_tokens: 400, store: false
+      })
+    });
+    const data = await response.json();
+    const answer = data.output_text || (data.output || []).flatMap(item => item.content || []).filter(item => item.type === 'output_text').map(item => item.text).join('');
+    if (!response.ok || !answer) {
+      console.error('OpenAI pet error', response.status, data?.error);
+      return res.status(502).json({ message: data?.error?.message || 'AIから有効な返事を受け取れませんでした。' });
+    }
+    res.json({ answer });
+  } catch (error) {
+    console.error('OpenAI pet request failed', error);
+    res.status(502).json({ message: error.name === 'AbortError' ? 'AIの応答がタイムアウトしました。' : 'AIに接続できませんでした。' });
+  } finally {
+    clearTimeout(timeout);
+  }
+});
+
 app.get('*', (req, res) => {
   const ua = req.headers['user-agent'] || '';
   res.sendFile(path.join(__dirname, 'public', isMobile(ua) ? 'mobile.html' : 'index.html'));
