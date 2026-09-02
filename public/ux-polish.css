@@ -39,3 +39,12 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
  .bottom-tabs .btab-menu{border-left:1px solid var(--b2)!important}
  .bottom-tabs .btab-icon{font-size:20px!important}
 }
+/* v1.5.3 desktop bottom navigation matches room tabs */
+@media(min-width:769px){
+ .bottom-tabs{gap:8px!important;height:68px!important;padding:8px 12px!important;background:var(--surf)!important;border-top:1px solid var(--b1)!important}
+ .bottom-tabs .btab,.bottom-tabs .btab-menu{flex:1 1 0!important;min-height:50px!important;border:1px solid var(--b2)!important;border-radius:9px!important;background:transparent!important;color:var(--t2)!important;box-shadow:none!important}
+ .bottom-tabs .btab:hover,.bottom-tabs .btab-menu:hover{border-color:var(--b3)!important;color:var(--t1)!important}
+ .bottom-tabs .btab.on{background:var(--acc)!important;border-color:var(--acc)!important;color:#071000!important}
+ .bottom-tabs .btab.on::after,.bottom-tabs .btab-menu::after{display:none!important}
+ .bottom-tabs .btab-menu{border-left:1px solid var(--b2)!important}
+}

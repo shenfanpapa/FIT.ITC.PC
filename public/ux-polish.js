@@ -28,3 +28,23 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setupMobileSidebar,{once:true});else setupMobileSidebar();
 })();
+/* v1.5.4: bind the visible arrow directly; inline handlers kept calling the old toggle. */
+(function(){
+ function bindWorkingSidebarButton(){
+  const button=document.getElementById('sidebarToggle'),wrap=document.querySelector('.sidebar-wrap'),arrow=document.getElementById('toggleArrow');
+  if(!button||!wrap)return;
+  let bg=document.getElementById('uxSidebarBackdrop');
+  if(!bg){bg=document.createElement('div');bg.id='uxSidebarBackdrop';bg.className='ux-sidebar-backdrop';document.body.appendChild(bg);}
+  const close=function(){wrap.classList.remove('ux-open');bg.classList.remove('open');if(arrow)arrow.textContent='▶';};
+  button.removeAttribute('onclick');
+  button.onclick=function(event){
+   event.preventDefault();event.stopPropagation();
+   if(window.innerWidth>768){const sb=document.getElementById('sidebar');sb.classList.toggle('collapsed');if(arrow)arrow.textContent=sb.classList.contains('collapsed')?'▶':'◀';return;}
+   const open=!wrap.classList.contains('ux-open');
+   if(open&&typeof renderSidebar==='function')renderSidebar();
+   wrap.classList.toggle('ux-open',open);bg.classList.toggle('open',open);if(arrow)arrow.textContent=open?'◀':'▶';
+  };
+  bg.onclick=close;
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(bindWorkingSidebarButton,0)},{once:true});else setTimeout(bindWorkingSidebarButton,0);
+})();
