@@ -246,7 +246,7 @@ app.post('/api/pet/chat', async (req, res) => {
   if (!process.env.OPENAI_API_KEY || !PC_CHAT_PASSWORD) {
     return res.status(503).json({ message: 'AIはまだ設定されていません。管理者が OPENAI_API_KEY と PET_CHAT_PASSWORD を設定してください。' });
   }
-  if (req.get('x-pet-password') !== PC_CHAT_PASSWORD) {
+  if (String(req.body?.password || '') !== PC_CHAT_PASSWORD) {
     return res.status(401).json({ message: '合言葉が違うみたいです。もう一度お願いします。' });
   }
   const message = String(req.body?.message || '').trim();
