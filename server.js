@@ -251,6 +251,11 @@ app.post('/api/pet/chat', async (req, res) => {
   }
   const message = String(req.body?.message || '').trim();
   if (!message || message.length > 600) return res.status(400).json({ message: '質問は600文字以内で入力してください。' });
+  const history = Array.isArray(req.body?.history) ? req.body.history.slice(-20).map(item => ({
+    role: item?.role === 'assistant' ? 'Assistant' : 'User',
+    text: String(item?.text || '').replace(/\s+/g, ' ').slice(0, 400)
+  })).filter(item => item.text) : [];
+  const conversation = history.length ? `直近の会話（文脈としてのみ使用）：\n${history.map(item => `${item.role}: ${item.text}`).join('\n')}\n\nUser: ${message}` : message;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
@@ -261,7 +266,7 @@ app.post('/api/pet/chat', async (req, res) => {
       body: JSON.stringify({
         model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
         instructions: 'あなたはFIT.ITC.PCの案内ペット「鯨」です。日本語で、丁寧で少しだけツンとした可愛い口調で答えます。回答は原則1〜2文、最大80文字にしてください。手順が必要な場合も最大3個の短い箇条書きにします。個人名、連絡先、学籍番号などの個人情報は扱わず、分からない内容は職員へ報告するよう案内してください。',
-        input: message, max_output_tokens: 120, store: false
+        input: conversation, max_output_tokens: 120, store: false
       })
     });
     const data = await response.json();
