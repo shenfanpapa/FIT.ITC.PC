@@ -2,25 +2,27 @@
   if(matchMedia('(max-width:768px)').matches)return;
   const reduced=matchMedia('(prefers-reduced-motion: reduce)'),pet=document.createElement('div'),bubble=document.createElement('div');
   const makeVideo=src=>{const video=document.createElement('video');video.src=src;video.muted=true;video.playsInline=true;video.preload='auto';video.disablePictureInPicture=true;video.setAttribute('disablepictureinpicture','');video.setAttribute('controlslist','nodownload noremoteplayback nopictureinpicture');return video;};
-  const idle=makeVideo('/assets/whale-pet/whale-idle.webm'),walk=makeVideo('/assets/whale-pet/whale-walk.webm');
-  pet.id='whalePet';bubble.id='whalePetBubble';pet.append(idle,walk);document.body.append(pet,bubble);
-  let x=40,y=40,vx=0,vy=0,dragging=false,last,mode='idle',active=idle,frameId=null,bubbleTimer=null;
+  const videos={idle:makeVideo('/assets/whale-pet/whale-idle.webm'),walk:makeVideo('/assets/whale-pet/whale-walk.webm'),eat:makeVideo('/assets/whale-pet/whale-eat.webm'),sneeze:makeVideo('/assets/whale-pet/whale-sneeze.webm'),squash:makeVideo('/assets/whale-pet/whale-squash.webm'),clean:makeVideo('/assets/whale-pet/whale-clean.webm'),workStart:makeVideo('/assets/whale-pet/whale-work-start.webm'),workThink:makeVideo('/assets/whale-pet/whale-work-think.webm'),workSlack:makeVideo('/assets/whale-pet/whale-work-slack.webm'),workEnd:makeVideo('/assets/whale-pet/whale-work-end.webm')};
+  pet.id='whalePet';bubble.id='whalePetBubble';pet.append(...Object.values(videos));document.body.append(pet,bubble);
+  let x=40,y=40,vx=0,vy=0,dragging=false,last,mode='idle',active=videos.idle,frameId=null,bubbleTimer=null,idleLoops=0,moveCooldown=0,workThoughts=0,workSlacked=false;
   const say=(text,duration=5000)=>{bubble.textContent=text;bubble.classList.add('show');clearTimeout(bubbleTimer);bubbleTimer=setTimeout(()=>bubble.classList.remove('show'),duration);};
   window.whalePetSay=say;say('こんにちは。話しかけてね。');
-  const floor=()=>{const tabs=document.getElementById('bottomTabs');return tabs?tabs.getBoundingClientRect().top-208:innerHeight-208};
-  // The supplied walk clip faces screen-left by default, so mirror it while travelling right.
-  const setFacing=()=>{walk.style.transform=vx<0?'scaleX(1)':'scaleX(-1)';};
+  const floor=()=>{const tabs=document.getElementById('bottomTabs');return tabs?tabs.getBoundingClientRect().top-208:innerHeight-208;};
+  const setFacing=()=>{videos.walk.style.transform=vx<0?'scaleX(1)':'scaleX(-1)';};
   const showVideo=video=>{if(active===video)return;active.style.opacity='0';active.pause();active=video;active.style.opacity='1';};
-  const playState=next=>{if(reduced.matches)return;mode=next;const video=mode==='idle'?idle:walk;showVideo(video);video.currentTime=0;video.play().catch(()=>{});};
+  const playState=next=>{if(reduced.matches)return;mode=next;const video=videos[next];showVideo(video);video.currentTime=0;video.play().catch(()=>{});};
+  const returnToIdle=()=>{idleLoops=0;playState('idle');};
   const beginWalk=()=>{const rightEdge=Math.max(0,innerWidth-208);vx=x<36?1.25:x>rightEdge-36?-1.25:(Math.random()<.5?-1.25:1.25);setFacing();playState('walk');};
+  const pickIdleEvent=()=>{const roll=Math.random()*100;if(roll<45)return playState('idle');if(roll<65){workThoughts=0;workSlacked=false;return playState('workStart');}if(roll<80)return playState(Math.random()<.5?'sneeze':'squash');if(roll<92)return playState(Math.random()<.5?'eat':'clean');if(moveCooldown===0)return beginWalk();playState('idle');};
+  function onStateEnd(){if(dragging||reduced.matches)return;if(mode==='idle'){idleLoops++;if(moveCooldown>0)moveCooldown--;return idleLoops<2?playState('idle'):pickIdleEvent();}if(mode==='walk'){moveCooldown=3;return returnToIdle();}if(mode==='workStart')return playState('workThink');if(mode==='workSlack')return playState('workThink');if(mode==='workThink'){workThoughts++;if(!workSlacked&&Math.random()<.4){workSlacked=true;return playState('workSlack');}return workThoughts<2&&Math.random()<.55?playState('workThink'):playState('workEnd');}returnToIdle();}
   function put(){x=Math.max(0,Math.min(innerWidth-208,x));y=Math.max(0,Math.min(floor(),y));pet.style.transform=`translate3d(${x}px,${y}px,0)`;bubble.style.left=(x>innerWidth-330?x-20:x+104)+'px';bubble.style.top=Math.max(8,y-54)+'px';}
-  function tick(){if(reduced.matches){put();active.pause();frameId=null;return;}if(!dragging){vy+=.35;y+=vy;const f=floor();if(y<=0)vy=Math.abs(vy)*.35;if(y>=f){y=f;vy*=-.18;if(Math.abs(vy)<.8)vy=0;}if(mode==='walk'){const elapsed=Number.isFinite(walk.currentTime)?walk.currentTime:0,remaining=Number.isFinite(walk.duration)?Math.max(0,walk.duration-elapsed):2;const accelerate=elapsed<2?Math.max(.06,elapsed/2):1,decelerate=remaining<2?Math.max(.06,remaining/2):1;x+=vx*Math.min(accelerate,decelerate);if(x<=0||x>=innerWidth-208){x=Math.max(0,Math.min(innerWidth-208,x));vx*=-1;setFacing();}}}put();frameId=requestAnimationFrame(tick);}
-  const stopDrag=()=>{if(!dragging)return;dragging=false;playState('idle');};
+  function tick(){if(reduced.matches){put();active.pause();frameId=null;return;}if(!dragging){vy+=.35;y+=vy;const f=floor();if(y<=0)vy=Math.abs(vy)*.35;if(y>=f){y=f;vy*=-.18;if(Math.abs(vy)<.8)vy=0;}if(mode==='walk'){const elapsed=Number.isFinite(active.currentTime)?active.currentTime:0,remaining=Number.isFinite(active.duration)?Math.max(0,active.duration-active.currentTime):2;const accelerate=elapsed<2?Math.max(.06,elapsed/2):1,decelerate=remaining<2?Math.max(.06,remaining/2):1;x+=vx*Math.min(accelerate,decelerate);if(x<=0||x>=innerWidth-208){x=Math.max(0,Math.min(innerWidth-208,x));vx*=-1;setFacing();}}}put();frameId=requestAnimationFrame(tick);}
+  const stopDrag=()=>{if(!dragging)return;dragging=false;returnToIdle();};
   pet.onpointerdown=event=>{if(reduced.matches)return;dragging=true;active.pause();last=[event.clientX,event.clientY];pet.setPointerCapture(event.pointerId);};
   pet.onpointermove=event=>{if(!dragging)return;x+=event.clientX-last[0];y+=event.clientY-last[1];last=[event.clientX,event.clientY];put();};
   pet.onpointerup=stopDrag;pet.onpointercancel=stopDrag;pet.onlostpointercapture=stopDrag;
-  [idle,walk].forEach(video=>video.addEventListener('ended',()=>{if(video!==active||dragging||reduced.matches)return;if(mode==='idle')beginWalk();else playState('idle');}));
+  Object.values(videos).forEach(video=>video.addEventListener('ended',()=>{if(video===active)onStateEnd();}));
   addEventListener('resize',put);document.addEventListener('visibilitychange',()=>{if(document.hidden)active.pause();else if(!reduced.matches&&!dragging)active.play().catch(()=>{});put();});
-  reduced.addEventListener('change',()=>{if(reduced.matches){if(frameId)cancelAnimationFrame(frameId);frameId=null;active.pause();put();}else if(!frameId){playState('idle');frameId=requestAnimationFrame(tick);}});
-  walk.style.opacity='0';if(reduced.matches){put();idle.pause();}else{playState('idle');frameId=requestAnimationFrame(tick);}
+  reduced.addEventListener('change',()=>{if(reduced.matches){if(frameId)cancelAnimationFrame(frameId);frameId=null;active.pause();put();}else if(!frameId){returnToIdle();frameId=requestAnimationFrame(tick);}});
+  Object.values(videos).forEach(video=>video.style.opacity='0');active.style.opacity='1';if(reduced.matches){put();active.pause();}else{playState('idle');frameId=requestAnimationFrame(tick);}
 })();

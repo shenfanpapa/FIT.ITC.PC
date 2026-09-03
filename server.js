@@ -8,6 +8,7 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DATA_FILE  = path.join(DATA_DIR, 'roomcheck.json');
 const THEME_FILE = path.join(DATA_DIR, 'theme.json');
 const DEFAULT_DATA_FILE = path.join(__dirname, 'defaults', 'roomcheck.default.json');
+const AI_KNOWLEDGE_FILE = path.join(__dirname, 'knowledge', 'ai-knowledge.md');
 const CURRENT_COORDINATE_SET = 'corrected-2026-09-02';
 
 app.use(express.json({ limit: '20mb' }));
@@ -144,6 +145,13 @@ function writeTheme(t) {
 function isMobile(ua) {
   return /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
 }
+function readAiKnowledge() {
+  try { return fs.readFileSync(AI_KNOWLEDGE_FILE, 'utf8').slice(0, 14000); }
+  catch (error) {
+    console.error('AI knowledge file is unavailable', error.message);
+    return '知識手冊を読み込めません。サイト操作と業務手順は職員へ確認するよう案内してください。';
+  }
+}
 
 app.get('/', (req, res) => {
   const ua = req.headers['user-agent'] || '';
@@ -264,9 +272,9 @@ app.post('/api/pet/chat', async (req, res) => {
       method: 'POST', signal: controller.signal,
       headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-        instructions: 'あなたはFIT.ITC.PCの案内ペット「鯨」です。日本語で、丁寧で少しだけツンとした可愛い口調で答えます。回答は原則1〜2文、最大80文字にしてください。手順が必要な場合も最大3個の短い箇条書きにします。個人名、連絡先、学籍番号などの個人情報は扱わず、分からない内容は職員へ報告するよう案内してください。',
-        input: conversation, max_output_tokens: 120, store: false
+        model: process.env.OPENAI_MODEL || 'gpt-5.6-terra',
+        instructions: `あなたはFIT.ITC.PCの案内ペット「鯨」です。以下の知識手冊を根拠に、日本語で丁寧に案内してください。少しだけツンとした可愛い口調にします。回答は原則1〜2文・最大80文字。手順が必要なときだけ最大3個の短い箇条書きにします。手冊にないことを断定せず、分からないことや現場判断が必要なことは職員へ報告するよう案内してください。個人名、連絡先、学籍番号などの個人情報は求めず、回答にも出しません。\n\n--- 知識手冊 ---\n${readAiKnowledge()}\n--- 手冊ここまで ---`,
+        input: conversation, max_output_tokens: 160, store: false, reasoning: { effort: 'low' }
       })
     });
     const data = await response.json();
@@ -295,4 +303,3 @@ app.use((err, _req, res, _next) => {
 });
 
 app.listen(PORT, () => console.log(`RoomCheck running on port ${PORT}`));
-const PC_PASS=process.env.PET_CHAT_PASSWORD||'',PC_USE=new Map();function pcDateSummary(d,date){let c={ok:0,ng:0,warn:0},issues=[];for(const[room,gs]of Object.entries(d.checkData?.[date]||{}))for(const[gid,es]of Object.entries(gs||{}))for(const[id,e]of Object.entries(es||{})){if(e.status==='ok')c.ok++;else if(e.status==='ng')c.ng++;else if(e.status==='warn')c.warn++;if((e.status==='ng'||e.status==='warn')&&issues.length<10)issues.push({room,device:(d.rooms?.[room]||[]).find(x=>x.id===id)?.label||id,status:e.status,note:String(e.note||'').slice(0,100)})}return{date,counts:c,issues}};app.post('/api/pet/chat',async(q,z)=>{if(!process.env.OPENAI_API_KEY||!PC_PASS)return z.status(503).json({message:'AIはまだ設定されていません。'});if(q.get('x-pet-password')!==PC_PASS)return z.status(401).json({message:'合言葉が違うみたいです。もう一度お願いします。'});let m=String(q.body?.message||'').trim();if(!m||m.length>600)return z.status(400).json({message:'質問は600文字以内で入力してください。'});try{let r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+process.env.OPENAI_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({model:'gpt-5.4-mini',instructions:'あなたはFIT.ITC.PCの案内ペット「鯨」です。日本語で、丁寧で少しだけツンとした可愛い口調で答えます。サイトの点検、履歴、グループ、レイアウト、テーマ、復元の使い方を短い手順で案内します。業務ガイドでは清掃、機器確認、学生対応、忘れ物、施錠消灯、Teams報告を説明できます。個人名、連絡先、学籍番号などの個人情報は扱いません。分からない内容は職員へ報告するよう案内してください。',input:m+(()=>{let d=m.match(/20\d{2}-\d{2}-\d{2}/)?.[0];return d?'\\n\\n点検履歴（読み取り専用）:'+JSON.stringify(pcDateSummary(readData(),d)):''})(),max_output_tokens:400,store:false,reasoning:{effort:'none'}})}),j=await r.json(),a=j.output_text||(j.output||[]).flatMap(x=>x.content||[]).filter(x=>x.type==='output_text').map(x=>x.text).join('');if(!r.ok||!a){console.error('OpenAI pet error',r.status,j?.error);throw 0};z.json({answer:a,remaining:null})}catch(e){z.status(502).json({message:'AIは今うまく返事できません。少し待ってください。'})}});
