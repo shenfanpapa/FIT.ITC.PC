@@ -11,6 +11,24 @@ function update(){if(!document.body.classList.contains('ui-ready'))return;const 
 function init(){if(S.ready)return;S.ready=true;build();labels();document.addEventListener('click',()=>setTimeout(()=>{S.key='';update()},40),true);setInterval(update,1000);update()}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
+/* v1.6.1: global lexical data is not exposed on window. */
+(()=>{window.renderSidebarHist=function(sb){const date=selectedDate||today(),sec=mksec(sb,`${fmtDate(date)} · 全教室の異常履歴`),rows=[];Object.entries(checkData?.[date]||{}).forEach(([room,grps])=>{Object.entries(grps||{}).forEach(([grpId,devices])=>{Object.entries(devices||{}).forEach(([did,v])=>{if(v.status==='ng'||v.status==='warn')rows.push({room,grpId,did,...v})})})});Object.entries(freeEvalData?.[date]||{}).forEach(([room,devices])=>{Object.entries(devices||{}).forEach(([did,v])=>{if(v.status==='ng'||v.status==='warn')rows.push({room,grpId:'自由評価',did,...v})})});if(!rows.length){sec.innerHTML='<div style="font-size:11px;color:var(--t3);text-align:center;padding:12px 0">この日の異常記録はありません</div>';return}rows.forEach(r=>{const dev=(rooms?.[r.room]||[]).find(d=>d.id===r.did),item=document.createElement('button');item.className='hist-row';item.style.cssText='width:100%;text-align:left;display:flex;gap:7px;align-items:center;padding:9px 10px;cursor:pointer';item.innerHTML=`<span style="color:${r.status==='ng'?'var(--err)':'var(--warn)'}">${r.status==='ng'?'✗':'△'}</span><span style="font-size:10px;color:var(--acc2)">${r.room}</span><span style="flex:1">${esc(dev?.label||r.did)}</span><span style="font-size:10px;color:var(--t3)">${esc(r.note||'')}</span>`;item.onclick=()=>jumpToDevice(r.room,r.did);sec.appendChild(item)})};})();
+/* v1.6: pet controls, safe AI guidance, mobile save and selected-date global history. */
+(()=>{
+ const pulse=el=>{if(!el)return;el.classList.remove('whale-guide-pulse');void el.offsetWidth;el.classList.add('whale-guide-pulse');setTimeout(()=>el.classList.remove('whale-guide-pulse'),3400)};
+ const findTarget=id=>({
+  'room-tabs':document.querySelector('.room-tabs'), 'date-picker':document.querySelector('#mobileDateInp,.date-input'), 'check-device':document.querySelector('.dev.check-today,.dev'),
+  'save-button':[...document.querySelectorAll('#hactions button')].find(b=>/保存/.test(b.textContent)), 'history-tab':document.getElementById('btab-hist'),
+  'menu-button':document.querySelector('.btab-menu'), 'theme-button':[...document.querySelectorAll('#rdrawer button')].find(b=>/テーマ/.test(b.textContent)),
+  'restore-button':[...document.querySelectorAll('#rdrawer button')].find(b=>/復元/.test(b.textContent)), 'pet-toggle':document.getElementById('whaleMenuToggle')
+ })[id];
+ window.whaleGuide=id=>{if(!id||id==='none')return;if(id==='theme-button'&&!document.getElementById('rdrawer')?.classList.contains('open')){const menu=findTarget('menu-button');pulse(menu);menu?.addEventListener('click',()=>setTimeout(()=>pulse(findTarget('theme-button')),280),{once:true});return}pulse(findTarget(id));};
+ function petMenu(){const body=document.querySelector('#rdrawer .rdrawer-body');if(!body||document.getElementById('whaleMenuToggle'))return;const b=document.createElement('button');b.id='whaleMenuToggle';b.className='rdrawer-btn';b.onclick=()=>{const visible=window.setWhaleMobileVisible?.();b.innerHTML=`<span class="rdrawer-btn-icon">🐳</span>${visible?'鯨を隠す':'鯨を表示'}`};body.appendChild(b);const sync=e=>b.innerHTML=`<span class="rdrawer-btn-icon">🐳</span>${e.detail?'鯨を隠す':'鯨を表示'}`;addEventListener('whalevisibility',sync);sync({detail:localStorage.getItem('whale_mobile_visible')!=='false'});}
+ const originalOpen=window.openRightDrawer;window.openRightDrawer=function(){originalOpen?.();petMenu()};
+ const originalHactions=window.renderHactions;window.renderHactions=function(){originalHactions?.();const save=[...document.querySelectorAll('#hactions button')].find(b=>/記録を保存/.test(b.textContent));if(save){save.classList.remove('hbtn-g');save.classList.add('hbtn-a');save.textContent='保存';save.title='現在の点検内容を保存'}};
+ function init(){petMenu();if(typeof window.renderAll==='function')setTimeout(()=>window.renderAll(),80)}
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
 /* v1.5.2: turn the mobile sidebar toggle into a real drawer. */
 (function(){
  function setupMobileSidebar(){
@@ -48,3 +66,5 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(bindWorkingSidebarButton,0)},{once:true});else setTimeout(bindWorkingSidebarButton,0);
 })();
+/* Final global-history override, after all UI adapters. */
+(()=>{window.renderSidebarHist=function(sb){const date=selectedDate||today(),sec=mksec(sb,`${fmtDate(date)} · 全教室の異常履歴`),rows=[];for(const [room,grps] of Object.entries(checkData?.[date]||{}))for(const [grpId,devices] of Object.entries(grps||{}))for(const [did,v] of Object.entries(devices||{}))if(v.status==='ng'||v.status==='warn')rows.push({room,grpId,did,...v});for(const [room,devices] of Object.entries(freeEvalData?.[date]||{}))for(const [did,v] of Object.entries(devices||{}))if(v.status==='ng'||v.status==='warn')rows.push({room,grpId:'自由評価',did,...v});if(!rows.length){sec.innerHTML='<div style="font-size:11px;color:var(--t3);text-align:center;padding:12px 0">この日の異常記録はありません</div>';return}for(const r of rows){const dev=(rooms[r.room]||[]).find(d=>d.id===r.did),item=document.createElement('button');item.className='hist-row';item.style.cssText='width:100%;text-align:left;display:flex;gap:7px;align-items:center;padding:9px 10px;cursor:pointer';item.innerHTML=`<span style="color:${r.status==='ng'?'var(--err)':'var(--warn)'}">${r.status==='ng'?'✗':'△'}</span><span style="font-size:10px;color:var(--acc2)">${r.room}</span><span style="flex:1">${esc(dev?.label||r.did)}</span><span style="font-size:10px;color:var(--t3)">${esc(r.note||'')}</span>`;item.onclick=()=>jumpToDevice(r.room,r.did);sec.appendChild(item)}};})();

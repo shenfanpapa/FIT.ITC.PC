@@ -250,13 +250,13 @@ app.post('/api/snapshot/restore', (req, res) => {
 });
 
 const PC_CHAT_PASSWORD = process.env.PET_CHAT_PASSWORD || '';
+const PET_RATE_LIMIT = new Map();
 app.post('/api/pet/chat', async (req, res) => {
-  if (!process.env.OPENAI_API_KEY || !PC_CHAT_PASSWORD) {
-    return res.status(503).json({ message: 'AIはまだ設定されていません。管理者が OPENAI_API_KEY と PET_CHAT_PASSWORD を設定してください。' });
-  }
-  if (String(req.body?.password || '') !== PC_CHAT_PASSWORD) {
-    return res.status(401).json({ message: '合言葉が違うみたいです。もう一度お願いします。' });
-  }
+  if (!process.env.OPENAI_API_KEY) return res.status(503).json({ message: 'AIはまだ設定されていません。管理者が OPENAI_API_KEY を設定してください。' });
+  const clientKey = String(req.ip || req.socket.remoteAddress || 'unknown');
+  const now = Date.now(), recent = (PET_RATE_LIMIT.get(clientKey) || []).filter(time => now - time < 60000);
+  if (recent.length >= 10) return res.status(429).json({ message: '少し質問が続いているみたい。1分ほど待ってから、もう一度聞いてね。' });
+  recent.push(now); PET_RATE_LIMIT.set(clientKey, recent);
   const message = String(req.body?.message || '').trim();
   if (!message || message.length > 600) return res.status(400).json({ message: '質問は600文字以内で入力してください。' });
   const history = Array.isArray(req.body?.history) ? req.body.history.slice(-20).map(item => ({
@@ -273,7 +273,7 @@ app.post('/api/pet/chat', async (req, res) => {
       headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: process.env.OPENAI_MODEL || 'gpt-5.6-terra',
-        instructions: `あなたはFIT.ITC.PCの案内ペット「鯨」です。以下の知識手冊を根拠に、日本語で丁寧に案内してください。少しだけツンとした可愛い口調にします。回答は原則1〜2文・最大80文字。手順が必要なときだけ最大3個の短い箇条書きにします。手冊にないことを断定せず、分からないことや現場判断が必要なことは職員へ報告するよう案内してください。個人名、連絡先、学籍番号などの個人情報は求めず、回答にも出しません。\n\n--- 知識手冊 ---\n${readAiKnowledge()}\n--- 手冊ここまで ---`,
+        instructions: `あなたはFIT.ITC.PCの案内ペット「鯨」です。以下の知識手冊を根拠に、日本語で温かく、少し可愛らしく案内してください。傲慢・ツンデレな言い回しは使いません。回答は原則1〜2文・最大80文字。手順が必要なときだけ最大3個の短い箇条書きにします。サイト操作の質問では、回答の末尾に必ず [[guide:ID]] を1つだけ付けてください。IDは room-tabs,date-picker,check-device,save-button,history-tab,menu-button,theme-button,restore-button,pet-toggle のいずれかで、該当しなければ none。手冊にないことを断定せず、分からないことや現場判断が必要なことは職員へ報告するよう案内してください。個人名、連絡先、学籍番号などの個人情報は求めず、回答にも出しません。\n\n--- 知識手冊 ---\n${readAiKnowledge()}\n--- 手冊ここまで ---`,
         input: conversation, max_output_tokens: 160, store: false, reasoning: { effort: 'low' }
       })
     });
@@ -283,7 +283,8 @@ app.post('/api/pet/chat', async (req, res) => {
       console.error('OpenAI pet error', response.status, data?.error);
       return res.status(502).json({ message: data?.error?.message || 'AIから有効な返事を受け取れませんでした。' });
     }
-    res.json({ answer });
+    const guideMatch = answer.match(/\[\[guide:([a-z-]+)\]\]\s*$/i);
+    res.json({ answer: answer.replace(/\s*\[\[guide:[a-z-]+\]\]\s*$/i, '').trim(), guideTarget: guideMatch?.[1] || 'none' });
   } catch (error) {
     console.error('OpenAI pet request failed', error);
     res.status(502).json({ message: error.name === 'AbortError' ? 'AIの応答がタイムアウトしました。' : 'AIに接続できませんでした。' });
