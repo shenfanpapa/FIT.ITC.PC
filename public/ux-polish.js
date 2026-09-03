@@ -17,7 +17,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 (()=>{
  const pulse=el=>{if(!el)return;el.classList.remove('whale-guide-pulse');void el.offsetWidth;el.classList.add('whale-guide-pulse');setTimeout(()=>el.classList.remove('whale-guide-pulse'),3400)};
  const findTarget=id=>({
-  'room-tabs':document.querySelector('.room-tabs'), 'date-picker':document.querySelector('#mobileDateInp,.date-input'), 'check-device':document.querySelector('.dev.check-today,.dev'),
+  'help-button':document.getElementById('uxHelpButton'), 'room-tabs':document.querySelector('.room-tabs'), 'date-picker':document.querySelector('#mobileDateInp,.date-input'), 'check-device':document.querySelector('.dev.check-today,.dev'),
   'save-button':[...document.querySelectorAll('#hactions button')].find(b=>/保存/.test(b.textContent)), 'history-tab':document.getElementById('btab-hist'),
   'menu-button':document.querySelector('.btab-menu'), 'theme-button':[...document.querySelectorAll('#rdrawer button')].find(b=>/テーマ/.test(b.textContent)),
   'restore-button':[...document.querySelectorAll('#rdrawer button')].find(b=>/復元/.test(b.textContent)), 'pet-toggle':document.getElementById('whaleMenuToggle')
