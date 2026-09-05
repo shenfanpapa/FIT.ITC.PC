@@ -220,6 +220,24 @@ function relevantMemory(messages, question) {
   return [...scored, ...recent].filter((item, index, list) => list.findIndex(other => other === item) === index).slice(-16);
 }
 
+function inferGuide(question, fallback = 'none') {
+  if (fallback && fallback !== 'none') return fallback;
+  const text = String(question || '').toLowerCase();
+  const matches = [
+    [/使い方|使用方法|操作方法|チュートリアル|マニュアル|手引き|help/, 'help-button'],
+    [/一括|まとめて|全教室|全て正常|すべて正常/, 'all-ok'],
+    [/テーマ|色|配色|ダーク|ライト/, 'theme-button'],
+    [/履歴|過去|以前|記録を見/, 'history-tab'],
+    [/保存|同期|反映/, 'save-button'],
+    [/日付|日にち|年月日|カレンダー/, 'date-picker'],
+    [/教室|部屋|room/, 'room-tabs'],
+    [/設備|点検|正常|異常|注意|メモ/, 'check-device'],
+    [/復元|戻す|バックアップ/, 'restore-button'],
+    [/メニュー|設定|編集|レイアウト|グループ/, 'menu-button']
+  ];
+  return matches.find(([pattern]) => pattern.test(text))?.[1] || 'none';
+}
+
 app.get('/', (req, res) => {
   const ua = req.headers['user-agent'] || '';
   res.sendFile(path.join(__dirname, 'public', isMobile(ua) ? 'mobile.html' : 'index.html'));
@@ -381,7 +399,7 @@ app.post('/api/pet/chat', async (req, res) => {
       try { await savePetMemory(memoryId, [...savedMemory, { role: 'User', text: message, at: new Date().toISOString() }, { role: 'Assistant', text: cleanAnswer, at: new Date().toISOString() }]); }
       catch (error) { console.error('Pet memory save failed', error.message); }
     }
-    res.json({ answer: cleanAnswer, guideTarget: guideMatch?.[1] || 'none', memoryEnabled: Boolean(petDb) });
+    res.json({ answer: cleanAnswer, guideTarget: inferGuide(message, guideMatch?.[1] || 'none'), memoryEnabled: Boolean(petDb) });
   } catch (error) {
     console.error('OpenAI pet request failed', error);
     res.status(502).json({ message: error.name === 'AbortError' ? 'AIの応答がタイムアウトしました。' : 'AIに接続できませんでした。' });

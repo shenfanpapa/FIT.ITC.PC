@@ -1590,7 +1590,7 @@ function renderSidebarCheck(sb){
     allOkBtn.textContent='✓ 全て正常';
     allOkBtn.onmouseover=()=>allOkBtn.style.background='rgba(0,212,170,.3)';
     allOkBtn.onmouseout=()=>allOkBtn.style.background='var(--hi-ok)';
-    allOkBtn.onclick=()=>{if(confirm('全'+grp.deviceIds.length+'台を「正常」に記録しますか？'))markAllOk();};
+    allOkBtn.onclick=()=>markAllOk();
     sec.appendChild(allOkBtn);
   }
   // Legend
@@ -3248,6 +3248,8 @@ function playSceneTransition(label){
 
 </script>
 <script src="/ux-polish.js"></script>
+<link rel="stylesheet" href="/help-manual.css">
+<script src="/help-manual.js"></script>
 <script src="/history-filters.js"></script>
 <link rel="stylesheet" href="/bulk-all-ok.css">
 <script src="/bulk-all-ok.js"></script>

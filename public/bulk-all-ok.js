@@ -36,7 +36,7 @@
   const showUndo=()=>{
     document.getElementById('bulkOkUndo')?.remove();
     const bar=document.createElement('div');bar.id='bulkOkUndo';bar.className='bulk-ok-undo';bar.innerHTML=`<span>${lastBatch.length}台を正常に記録しました</span><button type="button">元に戻す</button>`;
-    bar.querySelector('button').onclick=undo;document.body.append(bar);
+    bar.querySelector('button').onclick=undo;document.body.append(bar);setTimeout(()=>bar.remove(),12000);
   };
   const apply=()=>{
     const modal=ensureModal();modal.classList.remove('open');if(!pending.length)return;
