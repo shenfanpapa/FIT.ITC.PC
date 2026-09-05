@@ -18,7 +18,7 @@
   const enhance=()=>{const dialog=document.getElementById('uxHelp');if(!dialog||dialog.dataset.manualReady)return;dialog.dataset.manualReady='1';const card=dialog.querySelector('.ux-help-card');renderList(card);const close=()=>dialog.classList.remove('open');card.querySelector('.ux-help-close').onclick=close;card.addEventListener('click',event=>{const button=event.target.closest('[data-topic]');if(button)renderDetail(card,byId[button.dataset.topic]);if(event.target.closest('.ux-help-close'))close()});};
   const oldGuide=window.whaleGuide;
   const targets={
-    'all-ok':()=>document.querySelector('.mobile-allok,[onclick*="markAllOk"]'),
+    'all-ok':()=>document.querySelector('.mobile-allok,[onclick*="markAllOk"]')||[...document.querySelectorAll('button')].find(button=>/全教室を正常|全て正常/.test(button.textContent||'')),
     'help-button':()=>document.getElementById('uxHelpButton'),
     'room-tabs':()=>document.querySelector('.room-tabs'),
     'date-picker':()=>document.querySelector('#mobileDateInp,.date-input'),

@@ -199,6 +199,7 @@ function validMemoryId(value) { return /^[a-z0-9_-]{16,80}$/i.test(String(value 
 async function initPetMemory() {
   if (!petDb) return false;
   await petDb.query('CREATE TABLE IF NOT EXISTS pet_memory (user_id TEXT PRIMARY KEY, messages JSONB NOT NULL DEFAULT \'[]\'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())');
+  await petDb.query('CREATE TABLE IF NOT EXISTS pet_visits (user_id TEXT PRIMARY KEY, last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), last_seen_date DATE NOT NULL, opens_today INTEGER NOT NULL DEFAULT 1, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())');
   return true;
 }
 async function getPetMemory(userId) {
@@ -218,6 +219,49 @@ function relevantMemory(messages, question) {
   const scored = messages.slice(0, -8).map((item, index) => ({ item, index, score: keywords.reduce((score, key) => score + (String(item.text || '').toLowerCase().includes(key) ? 1 : 0), 0) })).filter(row => row.score > 0).sort((a, b) => b.score - a.score || b.index - a.index).slice(0, 8).sort((a, b) => a.index - b.index).map(row => row.item);
   const recent = messages.slice(-8);
   return [...scored, ...recent].filter((item, index, list) => list.findIndex(other => other === item) === index).slice(-16);
+}
+
+function japanDate(now = new Date()) {
+  const fields = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
+  const value = type => fields.find(part => part.type === type)?.value;
+  return `${value('year')}-${value('month')}-${value('day')}`;
+}
+function japanHour(now = new Date()) {
+  return Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Tokyo', hour: '2-digit', hourCycle: 'h23' }).format(now));
+}
+async function registerPetVisit(userId) {
+  if (!petDb || !validMemoryId(userId)) return null;
+  await initPetMemory();
+  const today = japanDate();
+  const result = await petDb.query('SELECT last_seen_at, last_seen_date, opens_today FROM pet_visits WHERE user_id = $1', [userId]);
+  const previous = result.rows[0];
+  const previousDate = previous?.last_seen_date instanceof Date ? previous.last_seen_date.toISOString().slice(0, 10) : String(previous?.last_seen_date || '').slice(0, 10);
+  const opensToday = previousDate === today ? Number(previous.opens_today || 0) + 1 : 1;
+  await petDb.query('INSERT INTO pet_visits (user_id, last_seen_at, last_seen_date, opens_today, updated_at) VALUES ($1, NOW(), $2::date, $3, NOW()) ON CONFLICT (user_id) DO UPDATE SET last_seen_at = NOW(), last_seen_date = EXCLUDED.last_seen_date, opens_today = EXCLUDED.opens_today, updated_at = NOW()', [userId, today, opensToday]);
+  return { previousSeenAt: previous?.last_seen_at || null, opensToday, firstToday: opensToday === 1, hour: japanHour() };
+}
+function visitFallback(context) {
+  if (!context) return 'こんにちは。今日は何をしようか？';
+  if (context.opensToday >= 3) return 'また会えたね。今日はよく会う日だ。';
+  if (context.previousSeenAt && Date.now() - new Date(context.previousSeenAt).getTime() > 3 * 86400000) return 'ひさしぶり。どこか寄り道してた？';
+  if (context.hour < 11) return 'おはよう。朝は何か食べた？';
+  if (context.hour >= 18) return 'こんばんは。今日も少しだけ一緒に見よう。';
+  return 'こんにちは。今日は何を食べたい気分？';
+}
+async function petCompletion(instructions, input, maxOutputTokens = 90) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 16000);
+  try {
+    const response = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST', signal: controller.signal,
+      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: process.env.OPENAI_MODEL || 'gpt-5.6-terra', instructions, input, max_output_tokens: maxOutputTokens, store: false, reasoning: { effort: 'low' } })
+    });
+    const data = await response.json();
+    const text = (data.output_text || (data.output || []).flatMap(item => item.content || []).filter(item => item.type === 'output_text').map(item => item.text).join('')).trim();
+    if (!response.ok || !text) throw new Error(data?.error?.message || 'empty response');
+    return text;
+  } finally { clearTimeout(timeout); }
 }
 
 function inferGuide(question, fallback = 'none') {
@@ -337,6 +381,46 @@ app.post('/api/snapshot/restore', (req, res) => {
 
 const PC_CHAT_PASSWORD = process.env.PET_CHAT_PASSWORD || '';
 const PET_RATE_LIMIT = new Map();
+const PET_PROACTIVE_RATE = new Map();
+app.post('/api/pet/visit', async (req, res) => {
+  const memoryId = String(req.body?.memoryId || '');
+  if (!validMemoryId(memoryId)) return res.status(400).json({ message: '記憶を特定できませんでした。' });
+  if (!petDb || !process.env.OPENAI_API_KEY) return res.json({ greeting: visitFallback(null), memoryEnabled: Boolean(petDb) });
+  try {
+    const visit = await registerPetVisit(memoryId);
+    const memory = await getPetMemory(memoryId);
+    const memoryHint = relevantMemory(memory, '今日 最近 好き 食べたい 予定').slice(-6).map(item => `${item.role}: ${item.text}`).join('\n') || '過去の会話はまだありません。';
+    const greeting = await petCompletion(
+      'あなたはFIT.ITC.PCの案内ペット「鯨」です。必ず日本語で、利用者がサイトを開いた時の短いひとことを作ってください。1〜2文、最大55文字。親しみやすく少し可愛く、母親のように世話を焼かず、ツンデレにもなりすぎません。作り話のニュースや事実は言わないでください。操作説明や案内タグは不要です。',
+      `訪問状況: 今日の訪問回数 ${visit?.opensToday || 1}回、今日が初回 ${visit?.firstToday ? 'はい' : 'いいえ'}、前回訪問 ${visit?.previousSeenAt || '初めて'}、日本時間 ${visit?.hour || japanHour()}時。\n過去の会話（参考）:\n${memoryHint}`
+    );
+    res.json({ greeting: greeting.slice(0, 100), memoryEnabled: true });
+  } catch (error) {
+    console.error('Pet visit greeting failed', error.message);
+    res.json({ greeting: visitFallback(null), memoryEnabled: Boolean(petDb) });
+  }
+});
+app.post('/api/pet/proactive', async (req, res) => {
+  const memoryId = String(req.body?.memoryId || '');
+  const action = String(req.body?.action || '画面を操作').replace(/[^\p{L}\p{N}\s、。・]/gu, '').slice(0, 80);
+  const tone = req.body?.tone === 'daily' ? 'daily' : 'work';
+  if (!validMemoryId(memoryId) || !process.env.OPENAI_API_KEY) return res.status(204).end();
+  const now = Date.now(), last = PET_PROACTIVE_RATE.get(memoryId) || 0;
+  if (now - last < 120000) return res.status(204).end();
+  PET_PROACTIVE_RATE.set(memoryId, now);
+  try {
+    const memory = petDb ? await getPetMemory(memoryId) : [];
+    const memoryHint = relevantMemory(memory, action).slice(-4).map(item => `${item.role}: ${item.text}`).join('\n') || 'なし';
+    const reply = await petCompletion(
+      'あなたはFIT.ITC.PCの案内ペット「鯨」です。ユーザーが実際に操作中なので、吹き出し用の自然なひとことを日本語で返してください。1文、最大45文字。励ましすぎ・監視しているような言い方・母親っぽい注意は避けます。作業系なら操作への軽い反応、日常系なら気軽な雑談にしてください。質問、操作手順、案内タグ、絵文字は禁止です。',
+      `直前の操作: ${action}\n話題: ${tone === 'daily' ? '日常雑談' : '作業への軽い反応'}\n過去会話（参考）:\n${memoryHint}`
+    );
+    res.json({ message: reply.slice(0, 80) });
+  } catch (error) {
+    console.error('Pet proactive message failed', error.message);
+    res.status(204).end();
+  }
+});
 app.post('/api/pet/memory/clear', async (req, res) => {
   const memoryId = String(req.body?.memoryId || '');
   if (!validMemoryId(memoryId)) return res.status(400).json({ message: '記憶を特定できませんでした。' });
@@ -344,6 +428,7 @@ app.post('/api/pet/memory/clear', async (req, res) => {
   try {
     await initPetMemory();
     await petDb.query('DELETE FROM pet_memory WHERE user_id = $1', [memoryId]);
+    await petDb.query('DELETE FROM pet_visits WHERE user_id = $1', [memoryId]);
     res.json({ ok: true });
   } catch (error) {
     console.error('Pet memory clear failed', error.message);

@@ -6,7 +6,7 @@
   pet.id='whalePet';bubble.id='whalePetBubble';pet.append(...Object.values(videos));document.body.append(pet,bubble);
   let x=40,y=40,vx=0,vy=0,dragging=false,last,mode='idle',active=videos.idle,frameId=null,bubbleTimer=null,idleLoops=0,moveCooldown=0,workThoughts=0,workSlacked=false,lastEvent='';
   const say=(text,duration=5000)=>{bubble.textContent=text;bubble.classList.add('show');clearTimeout(bubbleTimer);bubbleTimer=setTimeout(()=>bubble.classList.remove('show'),duration);};
-  window.whalePetSay=say;say('こんにちは。話しかけてね。');
+  window.whalePetSay=say;addEventListener('whale:say',event=>say(event.detail?.text,event.detail?.duration));
   const floor=()=>{const tabs=document.getElementById('bottomTabs');return tabs?tabs.getBoundingClientRect().top-208:innerHeight-208;};
   const setFacing=()=>{videos.walk.style.transform=vx<0?'scaleX(1)':'scaleX(-1)';};
   const showVideo=video=>{if(active===video)return;active.style.opacity='0';active.pause();active=video;active.style.opacity='1';};

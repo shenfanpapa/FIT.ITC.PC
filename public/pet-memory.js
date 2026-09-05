@@ -1,26 +1,17 @@
 (()=>{
-  const key='whale_memory_id';
-  let memoryId=localStorage.getItem(key);
+  const key='whale_memory_id';let memoryId=localStorage.getItem(key);
   if(!memoryId){memoryId=(crypto.randomUUID?.()||`whale_${Date.now()}_${Math.random().toString(36).slice(2)}`).replace(/-/g,'_');localStorage.setItem(key,memoryId)}
   const nativeFetch=window.fetch.bind(window);
-  window.fetch=(resource,options)=>{
-    const url=typeof resource==='string'?resource:resource?.url;
-    if(url==='/api/pet/chat'&&options?.body){
-      try{const body=JSON.parse(options.body);options={...options,body:JSON.stringify({...body,memoryId})}}catch(_){}
-    }
-    return nativeFetch(resource,options);
-  };
-  window.clearWhaleMemory=async()=>{
-    const response=await nativeFetch('/api/pet/memory/clear',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({memoryId})});
-    if(!response.ok)throw new Error('記憶を消去できませんでした。');
-    return true;
-  };
-  const addClearButton=(container)=>{
-    if(!container||container.querySelector('.whaleMemoryClear'))return;
-    const button=document.createElement('button');button.type='button';button.className='rdrawer-btn whaleMemoryClear';button.innerHTML='<span class="rdrawer-btn-icon">記</span>鯨の記憶を消す';
-    button.onclick=async()=>{if(!confirm('鯨の長期記憶を消しますか？'))return;button.disabled=true;try{await window.clearWhaleMemory();alert('鯨の長期記憶を消しました。')}catch(error){alert(error.message)}finally{button.disabled=false}};
-    container.append(button);
-  };
-  const attach=()=>addClearButton(document.querySelector('#rdrawer .rdrawer-body'));
-  new MutationObserver(attach).observe(document.body,{childList:true,subtree:true});attach();
+  window.fetch=(resource,options)=>{const url=typeof resource==='string'?resource:resource?.url;if(url==='/api/pet/chat'&&options?.body){try{const body=JSON.parse(options.body);options={...options,body:JSON.stringify({...body,memoryId})}}catch(_){}}return nativeFetch(resource,options)};
+  const speak=(text,duration=6500)=>{if(text)window.dispatchEvent(new CustomEvent('whale:say',{detail:{text,duration}}));};
+  window.clearWhaleMemory=async()=>{const response=await nativeFetch('/api/pet/memory/clear',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({memoryId})});if(!response.ok)throw new Error('記憶を消去できませんでした。');return true;};
+  let actionCount=0,lastProactive=0,typing=false;
+  const isPetUi=target=>target.closest?.('#whalePet,#whaleMobile,#whaleMobileInput,#whaleMobileToggle,.whalePetDialog,#whalePetBubble,#whaleMobileBubble');
+  const actionName=target=>{const text=(target.closest?.('button,a,label,[role="button"],.device,.seat')?.textContent||target.textContent||'').replace(/\s+/g,' ').trim();if(/保存|同期|反映/.test(text))return'保存をした';if(/正常|異常|注意|解決/.test(text))return'点検結果を記録した';if(/履歴/.test(text))return'履歴を確認した';if(/メニュー|設定|編集/.test(text))return'設定画面を開いた';if(/教室|B\d|ITコモンズ/.test(text))return'教室を切り替えた';return'画面を操作した';};
+  const proactive=async action=>{if(typing||document.hidden||!document.hasFocus()||Date.now()-lastProactive<120000||Math.random()>.16)return;lastProactive=Date.now();try{const response=await nativeFetch('/api/pet/proactive',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({memoryId,action,tone:Math.random()<.4?'daily':'work'})});if(response.ok){const data=await response.json();speak(data.message,6000)}}catch(_){}};
+  document.addEventListener('focusin',event=>{typing=Boolean(event.target.matches?.('input,textarea,[contenteditable="true"]'));});document.addEventListener('focusout',event=>{if(event.target.matches?.('input,textarea,[contenteditable="true"]'))typing=false;});
+  document.addEventListener('click',event=>{if(typing||isPetUi(event.target))return;const control=event.target.closest?.('button,a,label,[role="button"],.device,.seat,[onclick]');if(!control)return;actionCount++;if(actionCount>=2)proactive(actionName(event.target));},true);
+  const addClearButton=container=>{if(!container||container.querySelector('.whaleMemoryClear'))return;const button=document.createElement('button');button.type='button';button.className='rdrawer-btn whaleMemoryClear';button.innerHTML='<span class="rdrawer-btn-icon">記</span>鯨の記憶を消す';button.onclick=async()=>{if(!confirm('鯨の長期記憶と訪問の記録を消しますか？'))return;button.disabled=true;try{await window.clearWhaleMemory();alert('鯨の記憶を消しました。')}catch(error){alert(error.message)}finally{button.disabled=false}};container.append(button);};
+  const attach=()=>addClearButton(document.querySelector('#rdrawer .rdrawer-body'));new MutationObserver(attach).observe(document.body,{childList:true,subtree:true});attach();
+  addEventListener('DOMContentLoaded',async()=>{try{const response=await nativeFetch('/api/pet/visit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({memoryId})});if(response.ok){const data=await response.json();setTimeout(()=>speak(data.greeting,7000),180)}}catch(_){}},{once:true});
 })();
