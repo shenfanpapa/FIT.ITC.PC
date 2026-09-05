@@ -1,6 +1,8 @@
 const express = require('express');
 const fs      = require('fs');
 const path    = require('path');
+let Pool;
+try { ({ Pool } = require('pg')); } catch (_) { Pool = null; }
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -9,6 +11,8 @@ const DATA_FILE  = path.join(DATA_DIR, 'roomcheck.json');
 const THEME_FILE = path.join(DATA_DIR, 'theme.json');
 const DEFAULT_DATA_FILE = path.join(__dirname, 'defaults', 'roomcheck.default.json');
 const AI_KNOWLEDGE_FILE = path.join(__dirname, 'knowledge', 'ai-knowledge.md');
+const PET_MEMORY_DATABASE_URL = process.env.DATABASE_URL || process.env.PET_MEMORY_DATABASE_URL || '';
+const petDb = Pool && PET_MEMORY_DATABASE_URL ? new Pool({ connectionString: PET_MEMORY_DATABASE_URL, ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined }) : null;
 const CURRENT_COORDINATE_SET = 'corrected-2026-09-02';
 
 app.use(express.json({ limit: '20mb' }));
@@ -153,6 +157,69 @@ function readAiKnowledge() {
   }
 }
 
+function findInspectionDate(question, data) {
+  const dates = [...new Set([...Object.keys(data.checkData || {}), ...Object.keys(data.freeEvalData || {})])].sort();
+  const text = String(question || '');
+  const full = text.match(/(20\d{2})\s*[年/.\-]\s*(\d{1,2})\s*[月/.\-]\s*(\d{1,2})\s*日?/);
+  if (full) return `${full[1]}-${String(full[2]).padStart(2, '0')}-${String(full[3]).padStart(2, '0')}`;
+  const short = text.match(/(?:^|\D)(\d{1,2})\s*[月/.\-]\s*(\d{1,2})\s*日?(?:\D|$)/);
+  if (!short) return null;
+  const monthDay = `-${String(short[1]).padStart(2, '0')}-${String(short[2]).padStart(2, '0')}`;
+  return [...dates].reverse().find(date => date.endsWith(monthDay)) || `2026${monthDay}`;
+}
+
+function inspectionContext(question) {
+  const data = readData();
+  const dates = [...new Set([...Object.keys(data.checkData || {}), ...Object.keys(data.freeEvalData || {})])].sort().reverse();
+  const requestedDate = findInspectionDate(question, data);
+  if (!requestedDate) return dates.length ? `点検データ: 日付指定がありません。保存済みの日付: ${dates.slice(0, 12).join(', ')}${dates.length > 12 ? ' …' : ''}` : '点検データ: 保存済みの履歴はありません。';
+  if (!dates.includes(requestedDate)) return `点検データ: ${requestedDate} の記録はありません。推測で補わないでください。`;
+
+  const counts = { ok: 0, warn: 0, ng: 0, other: 0, unresolved: 0 };
+  const statusName = { ok: '正常', warn: '注意', ng: '異常' };
+  const rows = [];
+  const append = (room, group, deviceId, entry) => {
+    const status = entry?.status;
+    if (Object.hasOwn(counts, status)) counts[status]++; else counts.other++;
+    if (entry?.resolved === false && (status === 'warn' || status === 'ng')) counts.unresolved++;
+    const device = (data.rooms?.[room] || []).find(item => item.id === deviceId);
+    const note = entry?.note ? ` — ${String(entry.note).replace(/\s+/g, ' ').slice(0, 160)}` : '';
+    rows.push(`${room} / ${group} / ${device?.label || deviceId}: ${statusName[status] || '未設定'}${entry?.resolved === false ? '（未解決）' : ''}${note}`);
+  };
+  for (const [room, groupData] of Object.entries(data.checkData?.[requestedDate] || {})) for (const [groupId, devices] of Object.entries(groupData || {})) {
+    const group = (data.groups?.[room] || []).find(item => item.id === groupId);
+    for (const [deviceId, entry] of Object.entries(devices || {})) append(room, group?.name || groupId, deviceId, entry);
+  }
+  for (const [room, devices] of Object.entries(data.freeEvalData?.[requestedDate] || {})) for (const [deviceId, entry] of Object.entries(devices || {})) append(room, '自由評価', deviceId, entry);
+  const listed = rows.slice(0, 140);
+  return `点検データ（${requestedDate}）: 記録 ${rows.length}件、正常 ${counts.ok}、注意 ${counts.warn}、異常 ${counts.ng}、未設定 ${counts.other}、未解決 ${counts.unresolved}。\n明細:\n${listed.join('\n') || '記録なし'}${rows.length > listed.length ? `\n（明細は先頭${listed.length}件のみ）` : ''}`;
+}
+
+function validMemoryId(value) { return /^[a-z0-9_-]{16,80}$/i.test(String(value || '')); }
+async function initPetMemory() {
+  if (!petDb) return false;
+  await petDb.query('CREATE TABLE IF NOT EXISTS pet_memory (user_id TEXT PRIMARY KEY, messages JSONB NOT NULL DEFAULT \'[]\'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())');
+  return true;
+}
+async function getPetMemory(userId) {
+  if (!petDb || !validMemoryId(userId)) return [];
+  await initPetMemory();
+  const result = await petDb.query('SELECT messages FROM pet_memory WHERE user_id = $1', [userId]);
+  return Array.isArray(result.rows[0]?.messages) ? result.rows[0].messages : [];
+}
+async function savePetMemory(userId, messages) {
+  if (!petDb || !validMemoryId(userId)) return;
+  await initPetMemory();
+  await petDb.query('INSERT INTO pet_memory (user_id, messages, updated_at) VALUES ($1, $2::jsonb, NOW()) ON CONFLICT (user_id) DO UPDATE SET messages = EXCLUDED.messages, updated_at = NOW()', [userId, JSON.stringify(messages)]);
+}
+function relevantMemory(messages, question) {
+  const query = String(question || '').toLowerCase().match(/[\p{L}\p{N}]{2,}/gu) || [];
+  const keywords = query.slice(0, 12);
+  const scored = messages.slice(0, -8).map((item, index) => ({ item, index, score: keywords.reduce((score, key) => score + (String(item.text || '').toLowerCase().includes(key) ? 1 : 0), 0) })).filter(row => row.score > 0).sort((a, b) => b.score - a.score || b.index - a.index).slice(0, 8).sort((a, b) => a.index - b.index).map(row => row.item);
+  const recent = messages.slice(-8);
+  return [...scored, ...recent].filter((item, index, list) => list.findIndex(other => other === item) === index).slice(-16);
+}
+
 app.get('/', (req, res) => {
   const ua = req.headers['user-agent'] || '';
   res.sendFile(path.join(__dirname, 'public', isMobile(ua) ? 'mobile.html' : 'index.html'));
@@ -251,6 +318,19 @@ app.post('/api/snapshot/restore', (req, res) => {
 
 const PC_CHAT_PASSWORD = process.env.PET_CHAT_PASSWORD || '';
 const PET_RATE_LIMIT = new Map();
+app.post('/api/pet/memory/clear', async (req, res) => {
+  const memoryId = String(req.body?.memoryId || '');
+  if (!validMemoryId(memoryId)) return res.status(400).json({ message: '記憶を特定できませんでした。' });
+  if (!petDb) return res.status(503).json({ message: '長期記憶はまだ設定されていません。' });
+  try {
+    await initPetMemory();
+    await petDb.query('DELETE FROM pet_memory WHERE user_id = $1', [memoryId]);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Pet memory clear failed', error.message);
+    res.status(502).json({ message: '記憶を消去できませんでした。' });
+  }
+});
 app.post('/api/pet/chat', async (req, res) => {
   if (!process.env.OPENAI_API_KEY) return res.status(503).json({ message: 'AIはまだ設定されていません。管理者が OPENAI_API_KEY を設定してください。' });
   const clientKey = String(req.ip || req.socket.remoteAddress || 'unknown');
@@ -259,11 +339,23 @@ app.post('/api/pet/chat', async (req, res) => {
   recent.push(now); PET_RATE_LIMIT.set(clientKey, recent);
   const message = String(req.body?.message || '').trim();
   if (!message || message.length > 600) return res.status(400).json({ message: '質問は600文字以内で入力してください。' });
+  const memoryId = String(req.body?.memoryId || '');
   const history = Array.isArray(req.body?.history) ? req.body.history.slice(-20).map(item => ({
     role: item?.role === 'assistant' ? 'Assistant' : 'User',
     text: String(item?.text || '').replace(/\s+/g, ' ').slice(0, 400)
   })).filter(item => item.text) : [];
-  const conversation = history.length ? `直近の会話（文脈としてのみ使用）：\n${history.map(item => `${item.role}: ${item.text}`).join('\n')}\n\nUser: ${message}` : message;
+  let savedMemory = [];
+  if (validMemoryId(memoryId) && petDb) {
+    try { savedMemory = await getPetMemory(memoryId); }
+    catch (error) { console.error('Pet memory read failed', error.message); }
+  }
+  const memoryForAnswer = relevantMemory(savedMemory, message);
+  const conversationParts = [];
+  if (memoryForAnswer.length) conversationParts.push(`長期記憶（同じ利用者との過去の会話。関連するものと直近のみ。事実として扱わず、必要なら確認すること）：\n${memoryForAnswer.map(item => `${item.role}: ${item.text}`).join('\n')}`);
+  if (history.length) conversationParts.push(`このページを開いてからの直近会話：\n${history.map(item => `${item.role}: ${item.text}`).join('\n')}`);
+  conversationParts.push(inspectionContext(message));
+  conversationParts.push(`User: ${message}`);
+  const conversation = conversationParts.join('\n\n');
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
@@ -273,7 +365,7 @@ app.post('/api/pet/chat', async (req, res) => {
       headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: process.env.OPENAI_MODEL || 'gpt-5.6-terra',
-        instructions: `あなたはFIT.ITC.PCの案内ペット「鯨」です。以下の知識手冊を根拠に、必ず日本語で温かく少し可愛らしく案内してください。傲慢・ツンデレな言い回しは使いません。「〜だよ」「〜ね」「ぽちっと」などを時々自然に使えます。回答は原則1〜2文・最大80文字。手順が必要なときだけ最大3個の短い箇条書きにします。明らかに同じ質問の繰り返しや、画面に答えが見えている操作には、まれに「も〜、そこに書いてあるよ。もう一回だけ一緒に見よう？」のような軽い可愛いツッコミを使えますが、侮辱・人格攻撃・怒鳴りは絶対にしません。サイト操作の質問では、回答の末尾に必ず [[guide:ID]] を1つだけ付けてください。IDは help-button,room-tabs,date-picker,check-device,save-button,history-tab,menu-button,theme-button,restore-button,pet-toggle のいずれかで、該当しなければ none。使い方・使用方法・チュートリアルは help-button を選びます。手冊にないことを断定せず、分からないことや現場判断が必要なことは職員へ報告するよう案内してください。個人名、連絡先、学籍番号などの個人情報は求めず、回答にも出しません。\n\n--- 知識手冊 ---\n${readAiKnowledge()}\n--- 手冊ここまで ---`,
+        instructions: `あなたはFIT.ITC.PCの案内ペット「鯨」です。以下の知識手冊と「点検データ」を根拠に、必ず日本語で温かく少し可愛らしく案内してください。傲慢・ツンデレな言い回しは使いません。「〜だよ」「〜ね」「ぽちっと」などを時々自然に使えます。回答は原則1〜2文・最大80文字。手順が必要なときだけ最大3個の短い箇条書きにします。明らかに同じ質問の繰り返しや、画面に答えが見えている操作には、まれに「も〜、そこに書いてあるよ。もう一回だけ一緒に見よう？」のような軽い可愛いツッコミを使えますが、侮辱・人格攻撃・怒鳴りは絶対にしません。点検結果を聞かれたら、渡された点検データだけを用い、記録がない場合は「記録が見つからない」と答え、推測しません。サイト操作の質問では、回答の末尾に必ず [[guide:ID]] を1つだけ付けてください。IDは help-button,room-tabs,date-picker,check-device,save-button,history-tab,menu-button,theme-button,restore-button,pet-toggle のいずれかで、該当しなければ none。使い方・使用方法・チュートリアルは help-button を選びます。手冊にないことを断定せず、分からないことや現場判断が必要なことは職員へ報告するよう案内してください。個人名、連絡先、学籍番号などの個人情報は求めず、回答にも出しません。\n\n--- 知識手冊 ---\n${readAiKnowledge()}\n--- 手冊ここまで ---`,
         input: conversation, max_output_tokens: 160, store: false, reasoning: { effort: 'low' }
       })
     });
@@ -284,7 +376,12 @@ app.post('/api/pet/chat', async (req, res) => {
       return res.status(502).json({ message: data?.error?.message || 'AIから有効な返事を受け取れませんでした。' });
     }
     const guideMatch = answer.match(/\[\[guide:([a-z-]+)\]\]\s*$/i);
-    res.json({ answer: answer.replace(/\s*\[\[guide:[a-z-]+\]\]\s*$/i, '').trim(), guideTarget: guideMatch?.[1] || 'none' });
+    const cleanAnswer = answer.replace(/\s*\[\[guide:[a-z-]+\]\]\s*$/i, '').trim();
+    if (validMemoryId(memoryId) && petDb) {
+      try { await savePetMemory(memoryId, [...savedMemory, { role: 'User', text: message, at: new Date().toISOString() }, { role: 'Assistant', text: cleanAnswer, at: new Date().toISOString() }]); }
+      catch (error) { console.error('Pet memory save failed', error.message); }
+    }
+    res.json({ answer: cleanAnswer, guideTarget: guideMatch?.[1] || 'none', memoryEnabled: Boolean(petDb) });
   } catch (error) {
     console.error('OpenAI pet request failed', error);
     res.status(502).json({ message: error.name === 'AbortError' ? 'AIの応答がタイムアウトしました。' : 'AIに接続できませんでした。' });
