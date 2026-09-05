@@ -221,12 +221,13 @@ function relevantMemory(messages, question) {
 }
 
 function inferGuide(question, fallback = 'none') {
-  if (fallback && fallback !== 'none') return fallback;
   const text = String(question || '').toLowerCase();
   const matches = [
     [/使い方|使用方法|操作方法|チュートリアル|マニュアル|手引き|help/, 'help-button'],
     [/一括|まとめて|全教室|全て正常|すべて正常/, 'all-ok'],
     [/テーマ|色|配色|ダーク|ライト/, 'theme-button'],
+    [/グループ|列の設定|担当グループ/, 'group-settings'],
+    [/レイアウト|配置|位置を変/, 'layout-edit'],
     [/履歴|過去|以前|記録を見/, 'history-tab'],
     [/保存|同期|反映/, 'save-button'],
     [/日付|日にち|年月日|カレンダー/, 'date-picker'],
@@ -235,7 +236,7 @@ function inferGuide(question, fallback = 'none') {
     [/復元|戻す|バックアップ/, 'restore-button'],
     [/メニュー|設定|編集|レイアウト|グループ/, 'menu-button']
   ];
-  return matches.find(([pattern]) => pattern.test(text))?.[1] || 'none';
+  return matches.find(([pattern]) => pattern.test(text))?.[1] || fallback || 'none';
 }
 
 app.get('/', (req, res) => {
