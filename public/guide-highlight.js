@@ -1,6 +1,6 @@
 (()=>{
   const previous=window.whaleGuide;
-  const pulse=element=>{if(!element)return false;element.classList.remove('whale-guide-pulse');void element.offsetWidth;element.classList.add('whale-guide-pulse');setTimeout(()=>element.classList.remove('whale-guide-pulse'),5000);return true;};
+  const pulse=element=>{if(!element)return false;try{element.scrollIntoView({behavior:'smooth',block:'center',inline:'center'});}catch(_){element.scrollIntoView?.();}setTimeout(()=>{element.classList.remove('whale-guide-pulse');void element.offsetWidth;element.classList.add('whale-guide-pulse');},180);setTimeout(()=>element.classList.remove('whale-guide-pulse'),5200);return true;};
   const drawerOpen=()=>document.getElementById('rdrawer')?.classList.contains('open');
   const menu=()=>document.querySelector('.btab-menu');
   const showStep=(text)=>{let note=document.getElementById('whaleGuideNote');if(!note){note=document.createElement('div');note.id='whaleGuideNote';note.className='whale-guide-note';document.body.append(note)}note.textContent=text;clearTimeout(note._timer);note._timer=setTimeout(()=>note.remove(),8000);};

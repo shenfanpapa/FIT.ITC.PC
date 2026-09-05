@@ -1,8 +1,11 @@
 (()=>{
   const baseGuide=window.whaleGuide;
   let cleanup=()=>{};
-  const pulse=element=>{if(!element)return;element.classList.remove('whale-guide-pulse');void element.offsetWidth;element.classList.add('whale-guide-pulse');setTimeout(()=>element.classList.remove('whale-guide-pulse'),3400)};
+  const pulse=element=>{if(!element)return;try{element.scrollIntoView({behavior:'smooth',block:'center',inline:'center'});}catch(_){element.scrollIntoView?.();}setTimeout(()=>{element.classList.remove('whale-guide-pulse');void element.offsetWidth;element.classList.add('whale-guide-pulse');},180);setTimeout(()=>element.classList.remove('whale-guide-pulse'),3600)};
   const buttonByText=text=>[...document.querySelectorAll('button,.grp-add')].find(element=>text.test(element.textContent||''));
+  const isMobile=()=>matchMedia('(max-width:768px)').matches;
+  const dateInput=()=>document.querySelector('#mobileDateInp,.date-input');
+  const sidebarToggle=()=>document.getElementById('sidebarToggle');
   const panel=()=>{let element=document.getElementById('whaleWorkflow');if(element)return element;element=document.createElement('aside');element.id='whaleWorkflow';element.className='whale-workflow';document.body.append(element);return element;};
   const step=(number,text,target,next)=>{cleanup();const box=panel();box.innerHTML=`<span>${number}</span><p>${text}</p><button type="button" aria-label="案内を閉じる">×</button>`;box.querySelector('button').onclick=stop;pulse(target);if(next&&target){const handler=()=>setTimeout(next,260);target.addEventListener('click',handler,{once:true});cleanup=()=>target.removeEventListener('click',handler);}};
   const stop=()=>{cleanup();document.getElementById('whaleWorkflow')?.remove();cleanup=()=>{}};
@@ -17,5 +20,11 @@
   const nameStep=target=>step('入力','グループ名を入力し、カラーを選んで作成します。',target);
   const layoutWorkflow=()=>{stop();const menu=document.querySelector('.btab-menu'),edit=()=>buttonByText(/レイアウト編集/);if(edit())return layoutStep(edit());step('1 / 2','まず「メニュー」を開きます。',menu,()=>waitFor(edit,layoutStep));};
   const layoutStep=target=>step('2 / 2','「レイアウト編集」を押した後、設備を選択して位置や表示を調整します。',target);
-  window.whaleGuide=id=>{const key=String(id||'').toLowerCase();if(key==='group-settings')return groupWorkflow();if(key==='layout-edit')return layoutWorkflow();stop();baseGuide?.(key);};
+  const openDateStep=()=>{const target=dateInput();if(target)return step('2 / 2','次に日付欄を押して、確認したい日を選びます。左右の矢印でも前後の日へ移動できます。',target);const toggle=sidebarToggle();step('2 / 3','日付欄を表示するため、左端の折りたたみボタンを押します。',toggle,()=>waitFor(dateInput,element=>step('3 / 3','日付欄を押して、確認したい日を選びます。',element)));};
+  const roomDateWorkflow=()=>{stop();const rooms=document.querySelector('.room-tabs');step('1 / 2','まず画面上部の教室名を押して、対象の教室を選びます。',rooms,openDateStep);};
+  const dateWorkflow=()=>{stop();openDateStep();};
+  const allOkTarget=()=>document.querySelector('.mobile-allok,[onclick*="markAllOk"]')||buttonByText(/全教室を正常|全て正常/);
+  const allOkWorkflow=()=>{stop();const target=allOkTarget();const sidebar=document.querySelector('.sidebar-wrap');const closed=isMobile()? !sidebar?.classList.contains('ux-open') : document.getElementById('sidebar')?.classList.contains('collapsed');if(closed){step('1 / 2','まず左端の折りたたみボタンを押して、操作欄を開きます。',sidebarToggle(),()=>setTimeout(()=>step('2 / 2','「全教室を正常にする」を押します。確認画面で対象台数を確認してください。',allOkTarget()),260));}else step('1 / 1','「全教室を正常にする」を押します。確認画面で対象台数を確認してください。',target);};
+  const unsupported=key=>{stop();const label=key==='group-settings'?'グループ設定':'レイアウト編集';const box=panel();box.innerHTML=`<span>案内</span><p>スマホ版では「${label}」は利用できません。PC版をご利用ください。</p><button type="button" aria-label="案内を閉じる">×</button>`;box.querySelector('button').onclick=stop;};
+  window.whaleGuide=id=>{const key=String(id||'').toLowerCase();if(isMobile()&&(key==='group-settings'||key==='layout-edit'))return unsupported(key);if(key==='group-settings')return groupWorkflow();if(key==='layout-edit')return layoutWorkflow();if(key==='room-tabs')return roomDateWorkflow();if(key==='date-picker')return dateWorkflow();if(key==='all-ok')return allOkWorkflow();stop();baseGuide?.(key);};
 })();

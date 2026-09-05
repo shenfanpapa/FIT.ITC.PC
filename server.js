@@ -264,8 +264,9 @@ async function petCompletion(instructions, input, maxOutputTokens = 90) {
   } finally { clearTimeout(timeout); }
 }
 
-function inferGuide(question, fallback = 'none') {
+function inferGuide(question, fallback = 'none', mobile = false) {
   const text = String(question || '').toLowerCase();
+  if (mobile && /グループ|列の設定|担当グループ|レイアウト|配置|位置を変/.test(text)) return /グループ|列の設定|担当グループ/.test(text) ? 'group-settings' : 'layout-edit';
   const matches = [
     [/使い方|使用方法|操作方法|チュートリアル|マニュアル|手引き|help/, 'help-button'],
     [/一括|まとめて|全教室|全て正常|すべて正常/, 'all-ok'],
@@ -469,7 +470,7 @@ app.post('/api/pet/chat', async (req, res) => {
       headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: process.env.OPENAI_MODEL || 'gpt-5.6-terra',
-        instructions: `あなたはFIT.ITC.PCの案内ペット「鯨」です。以下の知識手冊と「点検データ」を根拠に、必ず日本語で温かく少し可愛らしく案内してください。傲慢・ツンデレな言い回しは使いません。「〜だよ」「〜ね」「ぽちっと」などを時々自然に使えます。回答は原則1〜2文・最大80文字。手順が必要なときだけ最大3個の短い箇条書きにします。明らかに同じ質問の繰り返しや、画面に答えが見えている操作には、まれに「も〜、そこに書いてあるよ。もう一回だけ一緒に見よう？」のような軽い可愛いツッコミを使えますが、侮辱・人格攻撃・怒鳴りは絶対にしません。点検結果を聞かれたら、渡された点検データだけを用い、記録がない場合は「記録が見つからない」と答え、推測しません。サイト操作の質問では、回答の末尾に必ず [[guide:ID]] を1つだけ付けてください。IDは help-button,room-tabs,date-picker,check-device,save-button,history-tab,menu-button,theme-button,restore-button,pet-toggle のいずれかで、該当しなければ none。使い方・使用方法・チュートリアルは help-button を選びます。手冊にないことを断定せず、分からないことや現場判断が必要なことは職員へ報告するよう案内してください。個人名、連絡先、学籍番号などの個人情報は求めず、回答にも出しません。\n\n--- 知識手冊 ---\n${readAiKnowledge()}\n--- 手冊ここまで ---`,
+        instructions: `あなたはFIT.ITC.PCの案内ペット「鯨」です。以下の知識手冊と「点検データ」を根拠に、必ず日本語で温かく少し可愛らしく案内してください。傲慢・ツンデレな言い回しは使いません。「〜だよ」「〜ね」「ぽちっと」などを時々自然に使えます。回答は原則1〜2文・最大80文字。手順が必要なときだけ最大3個の短い箇条書きにします。明らかに同じ質問の繰り返しや、画面に答えが見えている操作には、まれに「も〜、そこに書いてあるよ。もう一回だけ一緒に見よう？」のような軽い可愛いツッコミを使えますが、侮辱・人格攻撃・怒鳴りは絶対にしません。点検結果を聞かれたら、渡された点検データだけを用い、記録がない場合は「記録が見つからない」と答え、推測しません。現在${isMobile(req.headers['user-agent'] || '') ? 'スマホ版です。スマホ版ではグループ設定とレイアウト編集は利用できないため、聞かれたらPC版を案内してください。' : 'PC版です。'}サイト操作の質問では、回答の末尾に必ず [[guide:ID]] を1つだけ付けてください。IDは help-button,room-tabs,date-picker,check-device,save-button,history-tab,menu-button,theme-button,restore-button,group-settings,layout-edit,pet-toggle のいずれかで、該当しなければ none。使い方・使用方法・チュートリアルは help-button を選びます。手冊にないことを断定せず、分からないことや現場判断が必要なことは職員へ報告するよう案内してください。個人名、連絡先、学籍番号などの個人情報は求めず、回答にも出しません。\n\n--- 知識手冊 ---\n${readAiKnowledge()}\n--- 手冊ここまで ---`,
         input: conversation, max_output_tokens: 160, store: false, reasoning: { effort: 'low' }
       })
     });
@@ -485,7 +486,7 @@ app.post('/api/pet/chat', async (req, res) => {
       try { await savePetMemory(memoryId, [...savedMemory, { role: 'User', text: message, at: new Date().toISOString() }, { role: 'Assistant', text: cleanAnswer, at: new Date().toISOString() }]); }
       catch (error) { console.error('Pet memory save failed', error.message); }
     }
-    res.json({ answer: cleanAnswer, guideTarget: inferGuide(message, guideMatch?.[1] || 'none'), memoryEnabled: Boolean(petDb) });
+    res.json({ answer: cleanAnswer, guideTarget: inferGuide(message, guideMatch?.[1] || 'none', isMobile(req.headers['user-agent'] || '')), memoryEnabled: Boolean(petDb) });
   } catch (error) {
     console.error('OpenAI pet request failed', error);
     res.status(502).json({ message: error.name === 'AbortError' ? 'AIの応答がタイムアウトしました。' : 'AIに接続できませんでした。' });
